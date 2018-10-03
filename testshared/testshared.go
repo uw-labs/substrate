@@ -221,7 +221,8 @@ func testPublisherShouldNotBlock(t *testing.T, ts TestServer) {
 		testMessages = append(testMessages, &m)
 	}
 
-	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 	prod := ts.NewProducer(topic)
 
 	prodMsgs := make(chan substrate.Message, 1024)
