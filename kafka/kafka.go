@@ -58,6 +58,11 @@ func (ams *AsyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 	errs := producer.Errors()
 	successes := producer.Successes()
 
+	go func() {
+		for suc := range successes {
+			acks <- suc.Metadata.(substrate.Message)
+		}
+	}()
 	for {
 		select {
 		case m := <-messages:
@@ -72,14 +77,11 @@ func (ams *AsyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 			}
 
 			message.Metadata = m
-
 			input <- message
 		case <-ctx.Done():
 			return nil
 		case err := <-errs:
 			return err
-		case suc := <-successes:
-			acks <- suc.Metadata.(substrate.Message)
 		}
 	}
 }

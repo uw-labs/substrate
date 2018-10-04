@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"reflect"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/uw-labs/substrate"
@@ -28,6 +30,7 @@ func TestAll(t *testing.T, ts TestServer) {
 	for _, x := range []func(t *testing.T, ts TestServer){
 		testOnePublisherOneMessageOneConsumer,
 		testOnePublisherOneMessageTwoConsumers,
+		testPublisherShouldNotBlock,
 		testConsumerAckInvalidMessageID,
 		testAckWithoutRecieve,
 		testConsumeWithoutAck,
@@ -208,6 +211,39 @@ func testOnePublisherOneMessageTwoConsumers(t *testing.T, ts TestServer) {
 		t.Errorf("unexpected error from consume : %s", err)
 	}
 
+}
+
+func testPublisherShouldNotBlock(t *testing.T, ts TestServer) {
+	topic := generateID()
+	var testMessages []*testMessage
+	for i := 0; i < 100000; i++ {
+		m := testMessage([]byte(fmt.Sprintf("message%v", i)))
+		testMessages = append(testMessages, &m)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	prod := ts.NewProducer(topic)
+
+	prodMsgs := make(chan substrate.Message, 1024)
+	prodAcks := make(chan substrate.Message, 1024)
+	prodErrs := make(chan error, 2)
+	go func() {
+		prodErrs <- prod.PublishMessages(ctx, prodAcks, prodMsgs)
+	}()
+
+	for _, m := range testMessages {
+		select {
+		case prodMsgs <- m:
+		case <-prodAcks:
+		case err := <-prodErrs:
+			if err != nil {
+				t.Errorf("unexpected error from consume : %s", err)
+			}
+		case <-ctx.Done():
+			t.Fatal("Producer should not block")
+		}
+	}
 }
 
 func testConsumerAckInvalidMessageID(t *testing.T, ts TestServer) {

@@ -51,7 +51,7 @@ func (p *AsyncMessageSink) PublishMessages(ctx context.Context, acks chan<- subs
 	conn := p.sc
 
 	ackMap := make(map[string]substrate.Message)
-	natsAcks := make(chan string)
+	natsAcks := make(chan string, cap(messages))
 	natsAckErrs := make(chan error, 1)
 	for {
 		select {
