@@ -59,8 +59,7 @@ func TestPublishMessagesSuccessfully(t *testing.T) {
 				Help: "sink_counter",
 				Name: "sink_counter",
 			}, []string{"status", "topic"}),
-		topic:      "testTopic",
-		bufferSize: 2,
+		topic: "testTopic",
 	}
 
 	acks := make(chan substrate.Message)
@@ -111,8 +110,7 @@ func TestPublishMessagesWithError(t *testing.T) {
 				Help: "sink_counter",
 				Name: "sink_counter",
 			}, []string{"status", "topic"}),
-		topic:      "testTopic",
-		bufferSize: 2,
+		topic: "testTopic",
 	}
 
 	acks := make(chan substrate.Message)
@@ -170,8 +168,7 @@ func TestConsumeMessagesSuccessfully(t *testing.T) {
 				Help: "source_counter",
 				Name: "source_counter",
 			}, []string{"status", "topic"}),
-		topic:      "testTopic",
-		bufferSize: 2,
+		topic: "testTopic",
 	}
 
 	acks := make(chan substrate.Message)
@@ -217,8 +214,7 @@ func TestConsumeMessagesWithError(t *testing.T) {
 				Help: "source_counter",
 				Name: "source_counter",
 			}, []string{"status", "topic"}),
-		topic:      "testTopic",
-		bufferSize: 2,
+		topic: "testTopic",
 	}
 
 	acks := make(chan substrate.Message)

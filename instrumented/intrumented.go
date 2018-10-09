@@ -12,14 +12,13 @@ var labels = []string{"status", "topic"}
 // AsyncMessageSink is an instrumented message sink
 // The counter vector will have the labels "status" and "topic"
 type AsyncMessageSink struct {
-	impl       substrate.AsyncMessageSink
-	counter    *prometheus.CounterVec
-	topic      string
-	bufferSize int
+	impl    substrate.AsyncMessageSink
+	counter *prometheus.CounterVec
+	topic   string
 }
 
 // NewAsyncMessageSink returns a pointer to a new AsyncMessageSink
-func NewAsyncMessageSink(sink substrate.AsyncMessageSink, counterOpts prometheus.CounterOpts, topic string, bufferSize int) *AsyncMessageSink {
+func NewAsyncMessageSink(sink substrate.AsyncMessageSink, counterOpts prometheus.CounterOpts, topic string) *AsyncMessageSink {
 	counter := prometheus.NewCounterVec(counterOpts, labels)
 
 	if err := prometheus.Register(counter); err != nil {
@@ -31,16 +30,15 @@ func NewAsyncMessageSink(sink substrate.AsyncMessageSink, counterOpts prometheus
 	}
 
 	return &AsyncMessageSink{
-		impl:       sink,
-		counter:    counter,
-		topic:      topic,
-		bufferSize: bufferSize,
+		impl:    sink,
+		counter: counter,
+		topic:   topic,
 	}
 }
 
 // PublishMessages implements message publshing wrapped in instrumentation
 func (ams *AsyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
-	successes := make(chan substrate.Message, ams.bufferSize)
+	successes := make(chan substrate.Message, cap(acks))
 
 	errs := make(chan error)
 	go func() {
@@ -77,14 +75,13 @@ func (ams *AsyncMessageSink) Status() (*substrate.Status, error) {
 // AsyncMessageSource is an instrumented message source
 // The counter vector will have the labels "status" and "topic"
 type AsyncMessageSource struct {
-	impl       substrate.AsyncMessageSource
-	counter    *prometheus.CounterVec
-	topic      string
-	bufferSize int
+	impl    substrate.AsyncMessageSource
+	counter *prometheus.CounterVec
+	topic   string
 }
 
 // NewAsyncMessageSource returns a pointer to a new AsyncMessageSource
-func NewAsyncMessageSource(source substrate.AsyncMessageSource, counterOpts prometheus.CounterOpts, topic string, bufferSize int) *AsyncMessageSource {
+func NewAsyncMessageSource(source substrate.AsyncMessageSource, counterOpts prometheus.CounterOpts, topic string) *AsyncMessageSource {
 	counter := prometheus.NewCounterVec(counterOpts, labels)
 
 	if err := prometheus.Register(counter); err != nil {
@@ -96,16 +93,15 @@ func NewAsyncMessageSource(source substrate.AsyncMessageSource, counterOpts prom
 	}
 
 	return &AsyncMessageSource{
-		impl:       source,
-		counter:    counter,
-		topic:      topic,
-		bufferSize: bufferSize,
+		impl:    source,
+		counter: counter,
+		topic:   topic,
 	}
 }
 
 // ConsumeMessages implements message consuming wrapped in instrumentation
 func (ams *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
-	toBeAcked := make(chan substrate.Message, ams.bufferSize)
+	toBeAcked := make(chan substrate.Message, cap(acks))
 
 	errs := make(chan error)
 	go func() {
