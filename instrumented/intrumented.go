@@ -51,16 +51,15 @@ func (ams *AsyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 	for {
 		select {
 		case success := <-successes:
-			acks <- success
 			ams.counter.WithLabelValues("success", ams.topic).Inc()
+			acks <- success
 		case <-ctx.Done():
-			return nil
+			return <-errs
 		case err := <-errs:
 			if err != nil {
 				ams.counter.WithLabelValues("error", ams.topic).Inc()
-				return err
 			}
-			return nil
+			return err
 		}
 	}
 }
@@ -120,13 +119,12 @@ func (ams *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 			toBeAcked <- ack
 			ams.counter.WithLabelValues("success", ams.topic).Inc()
 		case <-ctx.Done():
-			return nil
+			return <-errs
 		case err := <-errs:
 			if err != nil {
 				ams.counter.WithLabelValues("error", ams.topic).Inc()
-				return err
 			}
-			return nil
+			return err
 		}
 	}
 }
