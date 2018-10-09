@@ -23,9 +23,7 @@ const (
 	defaultMetadataRefreshFrequency = 10 * time.Minute
 )
 
-// AsyncMessageSink represents a kafka message source and implements the
-// substrate.AsyncMessageSink interface.
-type AsyncMessageSink struct {
+type AsyncMessageSinkConfig struct {
 	Brokers         []string
 	Topic           string
 	MaxMessageBytes int
@@ -33,13 +31,33 @@ type AsyncMessageSink struct {
 	Version         *sarama.KafkaVersion
 }
 
+func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
+
+	conf := config.buildSaramaProducerConfig()
+	client, err := sarama.NewClient(config.Brokers, conf)
+	if err != nil {
+		return nil, err
+	}
+
+	sink := AsyncMessageSink{
+		client:  client,
+		Topic:   config.Topic,
+		KeyFunc: config.KeyFunc,
+	}
+	return &sink, nil
+}
+
+type AsyncMessageSink struct {
+	client  sarama.Client
+	Topic   string
+	KeyFunc func(substrate.Message) []byte
+}
+
 // PublishMessages implements the PublishMessages method of the
 // substrate.AsyncMessageSink interface.
 func (ams *AsyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
 
-	conf := ams.buildSaramaProducerConfig()
-
-	producer, err := sarama.NewAsyncProducer(ams.Brokers, conf)
+	producer, err := sarama.NewAsyncProducerFromClient(ams.client)
 	if err != nil {
 		return err
 	}
@@ -87,10 +105,10 @@ func (ams *AsyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 }
 
 func (ams *AsyncMessageSink) Status() (*substrate.Status, error) {
-	return status(ams.Brokers, ams.Topic)
+	return status(ams.client, ams.Topic)
 }
 
-func (ams *AsyncMessageSink) buildSaramaProducerConfig() *sarama.Config {
+func (ams *AsyncMessageSinkConfig) buildSaramaProducerConfig() *sarama.Config {
 	conf := sarama.NewConfig()
 	conf.Producer.RequiredAcks = sarama.WaitForAll // make configurable
 	conf.Producer.Return.Successes = true
@@ -120,12 +138,12 @@ func (ams *AsyncMessageSink) buildSaramaProducerConfig() *sarama.Config {
 // Close implements the Close method of the substrate.AsyncMessageSink
 // interface.
 func (ams *AsyncMessageSink) Close() error {
-	return nil
+	return ams.client.Close()
 }
 
 // AsyncMessageSource represents a kafka message source and implements the
 // substrate.AsyncMessageSource interface.
-type AsyncMessageSource struct {
+type AsyncMessageSourceConfig struct {
 	ConsumerGroup            string
 	Topic                    string
 	Brokers                  []string
@@ -133,6 +151,49 @@ type AsyncMessageSource struct {
 	MetadataRefreshFrequency time.Duration
 	OffsetsRetention         time.Duration
 	Version                  *sarama.KafkaVersion
+}
+
+func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() *cluster.Config {
+	offset := OffsetNewest
+	if ams.Offset != 0 {
+		offset = ams.Offset
+	}
+	mrf := defaultMetadataRefreshFrequency
+	if ams.MetadataRefreshFrequency > 0 {
+		mrf = ams.MetadataRefreshFrequency
+	}
+
+	config := cluster.NewConfig()
+	config.Consumer.Return.Errors = true
+	config.Consumer.Offsets.Initial = offset
+	config.Metadata.RefreshFrequency = mrf
+	config.Consumer.Offsets.Retention = ams.OffsetsRetention
+
+	if ams.Version != nil {
+		config.Version = *ams.Version
+	}
+	return config
+}
+
+func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
+	config := c.buildSaramaConsumerConfig()
+
+	client, err := cluster.NewClient(c.Brokers, config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AsyncMessageSource{
+		client:        client,
+		consumerGroup: c.ConsumerGroup,
+		topic:         c.Topic,
+	}, nil
+}
+
+type AsyncMessageSource struct {
+	client        *cluster.Client
+	consumerGroup string
+	topic         string
 }
 
 type consumerMessage struct {
@@ -146,9 +207,7 @@ func (cm *consumerMessage) Data() []byte {
 // ConsumeMessages implements the ConsumeMessages method of the substrate.AsyncMessageSource interface.
 func (ams *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
 
-	config := ams.buildSaramaConsumerConfig()
-
-	c, err := cluster.NewConsumer(ams.Brokers, ams.ConsumerGroup, []string{ams.Topic}, config)
+	c, err := cluster.NewConsumerFromClient(ams.client, ams.consumerGroup, []string{ams.topic})
 	if err != nil {
 		return err
 	}
@@ -200,33 +259,12 @@ func (ams *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 }
 
 func (ams *AsyncMessageSource) Status() (*substrate.Status, error) {
-	return status(ams.Brokers, ams.Topic)
-}
-
-func (ams *AsyncMessageSource) buildSaramaConsumerConfig() *cluster.Config {
-	offset := OffsetNewest
-	if ams.Offset != 0 {
-		offset = ams.Offset
-	}
-	mrf := defaultMetadataRefreshFrequency
-	if ams.MetadataRefreshFrequency > 0 {
-		mrf = ams.MetadataRefreshFrequency
-	}
-
-	config := cluster.NewConfig()
-	config.Consumer.Return.Errors = true
-	config.Consumer.Offsets.Initial = offset
-	config.Metadata.RefreshFrequency = mrf
-	config.Consumer.Offsets.Retention = ams.OffsetsRetention
-
-	if ams.Version != nil {
-		config.Version = *ams.Version
-	}
-	return config
+	return status(ams.client, ams.topic)
 }
 
 // Close implements the Close method of the substrate.AsyncMessageSource
 // interface.
 func (ams *AsyncMessageSource) Close() error {
-	return nil
+	return ams.client.Close()
+
 }

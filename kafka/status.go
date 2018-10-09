@@ -5,15 +5,9 @@ import (
 	"github.com/uw-labs/substrate"
 )
 
-func status(brokerAddrs []string, topic string) (*substrate.Status, error) {
+func status(client sarama.Client, topic string) (*substrate.Status, error) {
 
 	status := &substrate.Status{}
-
-	client, err := sarama.NewClient(brokerAddrs, sarama.NewConfig())
-	if err != nil {
-		return nil, err
-	}
-	defer client.Close()
 
 	writablePartitions, err := client.WritablePartitions(topic)
 	if err != nil {
