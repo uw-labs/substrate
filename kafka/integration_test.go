@@ -36,19 +36,28 @@ type testServer struct {
 }
 
 func (ks *testServer) NewConsumer(topic string, groupID string) substrate.AsyncMessageSource {
-	return &AsyncMessageSource{
+	s, err := NewAsyncMessageSource(AsyncMessageSourceConfig{
 		Brokers:       []string{fmt.Sprintf("localhost:%d", ks.port)},
 		ConsumerGroup: groupID,
 		Topic:         topic,
 		Offset:        OffsetOldest,
+	})
+
+	if err != nil {
+		panic(err)
 	}
+	return s
 }
 
 func (ks *testServer) NewProducer(topic string) substrate.AsyncMessageSink {
-	return &AsyncMessageSink{
+	s, err := NewAsyncMessageSink(AsyncMessageSinkConfig{
 		Brokers: []string{fmt.Sprintf("localhost:%d", ks.port)},
 		Topic:   topic,
+	})
+	if err != nil {
+		panic(err)
 	}
+	return s
 }
 
 func (ks *testServer) Kill() error {
