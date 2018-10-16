@@ -121,19 +121,19 @@ type mockAsyncSource struct {
 	closed chan struct{}
 }
 
-func (m *mockAsyncSource) ConsumeMessages(ctx context.Context, messages chan<- Message, acks <-chan Message) error {
+func (mock *mockAsyncSource) ConsumeMessages(ctx context.Context, messages chan<- Message, acks <-chan Message) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case msg := <-m.toSend:
+		case msg := <-mock.toSend:
 			select {
 			case messages <- msg:
 				select {
 				case <-ctx.Done():
 					return ctx.Err()
 				case ack := <-acks:
-					m.acked <- ack
+					mock.acked <- ack
 				}
 			case <-ctx.Done():
 				return ctx.Err()
@@ -147,6 +147,6 @@ func (mock *mockAsyncSource) Close() error {
 	return nil
 }
 
-func (m *mockAsyncSource) Status() (*Status, error) {
+func (mock *mockAsyncSource) Status() (*Status, error) {
 	return &Status{Working: true}, nil
 }
