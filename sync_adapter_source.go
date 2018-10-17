@@ -37,7 +37,7 @@ func (a *synchronousMessageSourceAdapter) ConsumeMessages(ctx context.Context, h
 	for {
 		select {
 		case msg := <-messages:
-			if err := handler(msg); err != nil {
+			if err := handler(ctx, msg); err != nil {
 				cancel()
 				<-errs
 				return err

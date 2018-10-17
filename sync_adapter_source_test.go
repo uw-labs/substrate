@@ -31,7 +31,7 @@ func TestSyncConsumeAdapterBasic(t *testing.T) {
 	defer cancel()
 
 	var rcvd []Message
-	cb := func(m Message) error {
+	cb := func(ctx context.Context, m Message) error {
 		rcvd = append(rcvd, m)
 		return nil
 	}
@@ -86,7 +86,7 @@ func TestSyncConsumeAdapterNoAckAfterError(t *testing.T) {
 
 	errOn3rd := errors.New("error on 3rd message")
 
-	cb := func(m Message) error {
+	cb := func(ctx context.Context, m Message) error {
 		if m.(*message) == m3 {
 			return errOn3rd
 		}
