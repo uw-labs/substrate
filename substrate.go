@@ -41,7 +41,7 @@ type AsyncMessageSource interface {
 
 // ConsumerMessageHandler is the callback function type that synchronous
 // message consumers must implement.
-type ConsumerMessageHandler func(Message) error
+type ConsumerMessageHandler func(context.Context, Message) error
 
 // SynchronousMessageSource represents a message source that allows "message
 // at a time" consumption and relieves the consumer from having to deal with
