@@ -63,6 +63,6 @@ func (mock *mockAsyncSink) Close() error {
 	return nil
 }
 
-func (m *mockAsyncSink) Status() (*Status, error) {
+func (mock *mockAsyncSink) Status() (*Status, error) {
 	return &Status{Working: true}, nil
 }
