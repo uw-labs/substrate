@@ -36,11 +36,11 @@ type testServer struct {
 
 func (ks *testServer) NewConsumer(topic string, groupID string) substrate.AsyncMessageSource {
 	source, err := NewAsyncMessageSource(AsyncMessageSourceConfig{
-		url:       "http://localhost:4222",
-		clusterID: ks.clusterID,
+		URL:       "http://localhost:4222",
+		ClusterID: ks.clusterID,
 
-		consumerGroup: groupID,
-		subject:       topic,
+		ConsumerGroup: groupID,
+		Subject:       topic,
 	})
 	if err != nil {
 		panic(err)
@@ -158,11 +158,11 @@ loop3:
 
 func (ks *testServer) canConsume(topic string, groupID string) error {
 	source, err := NewAsyncMessageSource(AsyncMessageSourceConfig{
-		url:       "http://localhost:4222",
-		clusterID: ks.clusterID,
+		URL:       "http://localhost:4222",
+		ClusterID: ks.clusterID,
 
-		consumerGroup: groupID,
-		subject:       topic,
+		ConsumerGroup: groupID,
+		Subject:       topic,
 	})
 	if err != nil {
 		return err
