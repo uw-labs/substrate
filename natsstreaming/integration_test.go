@@ -39,8 +39,8 @@ func (ks *testServer) NewConsumer(topic string, groupID string) substrate.AsyncM
 		URL:       "http://localhost:4222",
 		ClusterID: ks.clusterID,
 
-		ConsumerGroup: groupID,
-		Subject:       topic,
+		QueueGroup: groupID,
+		Subject:    topic,
 	})
 	if err != nil {
 		panic(err)
@@ -161,8 +161,8 @@ func (ks *testServer) canConsume(topic string, groupID string) error {
 		URL:       "http://localhost:4222",
 		ClusterID: ks.clusterID,
 
-		ConsumerGroup: groupID,
-		Subject:       topic,
+		QueueGroup: groupID,
+		Subject:    topic,
 	})
 	if err != nil {
 		return err

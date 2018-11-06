@@ -107,10 +107,11 @@ func (p *AsyncMessageSink) Status() (*substrate.Status, error) {
 // AsyncMessageSource represents a nats-streaming message source and implements
 // the substrate.AsyncMessageSource interface.
 type AsyncMessageSourceConfig struct {
-	URL           string
-	ClusterID     string
-	Subject       string
-	ConsumerGroup string
+	URL        string
+	ClusterID  string
+	ClientID   string
+	Subject    string
+	QueueGroup string
 }
 
 type AsyncMessageSource struct {
@@ -119,7 +120,11 @@ type AsyncMessageSource struct {
 }
 
 func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
-	conn, err := stan.Connect(c.ClusterID, c.ConsumerGroup+generateID(), stan.NatsURL(c.URL))
+	clientID := c.ClientID
+	if clientID == "" {
+		clientID = c.QueueGroup + generateID()
+	}
+	conn, err := stan.Connect(c.ClusterID, clientID, stan.NatsURL(c.URL))
 	if err != nil {
 		return nil, err
 	}
@@ -152,10 +157,10 @@ func (c *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<
 
 	sub, err := c.conn.QueueSubscribe(
 		c.conf.Subject,
-		c.conf.ConsumerGroup,
+		c.conf.QueueGroup,
 		f,
 		stan.StartAt(pb.StartPosition_First),
-		stan.DurableName(c.conf.ConsumerGroup),
+		stan.DurableName(c.conf.QueueGroup),
 		stan.SetManualAckMode(),
 		stan.AckWait(60*time.Second),
 		stan.MaxInflight(32),
