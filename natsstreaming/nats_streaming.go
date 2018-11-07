@@ -142,11 +142,11 @@ func (c *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<
 
 	f := func(msg *stan.Msg) {
 		cm := &consumerMessage{msg}
+		msgsToAck <- cm
 		select {
 		case <-ctx.Done():
 			return
 		case messages <- cm:
-			msgsToAck <- cm
 		}
 	}
 
@@ -205,6 +205,7 @@ func handleAcks(ctx context.Context, msgsToAck chan *consumerMessage, acks <-cha
 			if err := msgToAck.m.Ack(); err != nil {
 				return fmt.Errorf("failed to ack message with NATS: %v", err.Error())
 			}
+			toAck = toAck[1:]
 		case <-ctx.Done():
 			//return ctx.Err()
 			return nil
