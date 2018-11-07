@@ -39,6 +39,7 @@ func TestAll(t *testing.T, ts TestServer) {
 		testProduceStatusFail,
 		testConsumeStatusOk,
 		testConsumeStatusFail,
+		testPublishMultipleMessagesOneConsumer,
 	} {
 		f := func(t *testing.T) {
 			x(t, ts)
@@ -418,6 +419,56 @@ func testConsumeStatusOk(t *testing.T, ts TestServer) {
 
 func testConsumeStatusFail(t *testing.T, ts TestServer) {
 	t.Skip("TODO: this needs a test, but the current TestServer abstraction doesn't led itself to this yet")
+}
+
+func testPublishMultipleMessagesOneConsumer(t *testing.T, ts TestServer) {
+	assert := assert.New(t)
+
+	topic := generateID()
+	consumerID := generateID()
+
+	cons := ts.NewConsumer(topic, consumerID)
+	prod := ts.NewProducer(topic)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	consMsgs := make(chan substrate.Message, 1024)
+	consAcks := make(chan substrate.Message, 1024)
+	consErrs := make(chan error, 1)
+	go func() {
+		consErrs <- cons.ConsumeMessages(ctx, consMsgs, consAcks)
+		cancel()
+	}()
+
+	prodMsgs := make(chan substrate.Message, 1024)
+	prodAcks := make(chan substrate.Message, 1024)
+	prodErrs := make(chan error, 1)
+	go func() {
+		prodErrs <- prod.PublishMessages(ctx, prodAcks, prodMsgs)
+		cancel()
+	}()
+
+	for i := 0; i < 30; i++ {
+		messageText := fmt.Sprintf("messageText-%d", i)
+		m := testMessage([]byte(messageText))
+		produceAndCheckAck(ctx, t, prodMsgs, prodAcks, &m)
+	}
+
+	for i := 0; i < 30; i++ {
+		messageText := fmt.Sprintf("messageText-%d", i)
+		msgStr := consumeAndAck(ctx, t, consMsgs, consAcks)
+		assert.Equal(messageText, msgStr)
+	}
+
+	// we're done
+	cancel()
+	if err := <-consErrs; err != nil {
+		t.Errorf("unexpected error from consume : %s", err)
+	}
+	if err := <-prodErrs; err != nil {
+		t.Errorf("unexpected error from consume : %s", err)
+	}
+
 }
 
 // Helper functions below here
