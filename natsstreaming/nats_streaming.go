@@ -29,7 +29,12 @@ type AsyncMessageSinkConfig struct {
 func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
 	sink := AsyncMessageSink{subject: config.Subject}
 
-	sc, err := stan.Connect(config.ClusterID, config.ClientID, stan.NatsURL(config.URL))
+	clientID := config.ClientID
+	if clientID == "" {
+		clientID = generateID()
+	}
+
+	sc, err := stan.Connect(config.ClusterID, clientID, stan.NatsURL(config.URL))
 	if err != nil {
 		return nil, err
 	}
