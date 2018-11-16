@@ -118,6 +118,7 @@ type AsyncMessageSourceConfig struct {
 	Subject     string
 	QueueGroup  string
 	MaxInFlight int
+	AckWait     time.Duration
 }
 
 type AsyncMessageSource struct {
@@ -165,6 +166,10 @@ func (c *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<
 	if maxInflight == 0 {
 		maxInflight = stan.DefaultMaxInflight
 	}
+	ackWait := c.conf.AckWait
+	if ackWait == 0 {
+		ackWait = stan.DefaultAckWait
+	}
 
 	sub, err := c.conn.QueueSubscribe(
 		c.conf.Subject,
@@ -173,7 +178,7 @@ func (c *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<
 		stan.StartAt(pb.StartPosition_First),
 		stan.DurableName(c.conf.QueueGroup),
 		stan.SetManualAckMode(),
-		stan.AckWait(60*time.Second),
+		stan.AckWait(ackWait),
 		stan.MaxInflight(maxInflight),
 	)
 	if err != nil {
