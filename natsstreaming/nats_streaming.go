@@ -112,11 +112,12 @@ func (p *AsyncMessageSink) Status() (*substrate.Status, error) {
 // AsyncMessageSource represents a nats-streaming message source and implements
 // the substrate.AsyncMessageSource interface.
 type AsyncMessageSourceConfig struct {
-	URL        string
-	ClusterID  string
-	ClientID   string
-	Subject    string
-	QueueGroup string
+	URL         string
+	ClusterID   string
+	ClientID    string
+	Subject     string
+	QueueGroup  string
+	MaxInFlight int
 }
 
 type AsyncMessageSource struct {
@@ -160,6 +161,11 @@ func (c *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<
 		}
 	}
 
+	maxInFlight = c.conf.MaxInFlight
+	if maxInFlight == 0 {
+		maxInFlight = stan.DefaultMaxInflight
+	}
+
 	sub, err := c.conn.QueueSubscribe(
 		c.conf.Subject,
 		c.conf.QueueGroup,
@@ -168,7 +174,7 @@ func (c *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<
 		stan.DurableName(c.conf.QueueGroup),
 		stan.SetManualAckMode(),
 		stan.AckWait(60*time.Second),
-		stan.MaxInflight(32),
+		stan.MaxInflight(stan.maxInflight),
 	)
 	if err != nil {
 		return err
