@@ -161,9 +161,9 @@ func (c *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<
 		}
 	}
 
-	maxInFlight = c.conf.MaxInFlight
-	if maxInFlight == 0 {
-		maxInFlight = stan.DefaultMaxInflight
+	maxInflight := c.conf.MaxInFlight
+	if maxInflight == 0 {
+		maxInflight = stan.DefaultMaxInflight
 	}
 
 	sub, err := c.conn.QueueSubscribe(
@@ -174,7 +174,7 @@ func (c *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<
 		stan.DurableName(c.conf.QueueGroup),
 		stan.SetManualAckMode(),
 		stan.AckWait(60*time.Second),
-		stan.MaxInflight(stan.maxInflight),
+		stan.MaxInflight(maxInflight),
 	)
 	if err != nil {
 		return err
