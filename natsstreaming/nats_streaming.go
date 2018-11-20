@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	_ substrate.AsyncMessageSink   = (*AsyncMessageSink)(nil)
-	_ substrate.AsyncMessageSource = (*AsyncMessageSource)(nil)
+	_ substrate.AsyncMessageSink   = (*asyncMessageSink)(nil)
+	_ substrate.AsyncMessageSource = (*asyncMessageSource)(nil)
 )
 
 // AsyncMessageSinkConfig is the configarion parameters for an
@@ -27,7 +27,7 @@ type AsyncMessageSinkConfig struct {
 }
 
 func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
-	sink := AsyncMessageSink{subject: config.Subject}
+	sink := asyncMessageSink{subject: config.Subject}
 
 	clientID := config.ClientID
 	if clientID == "" {
@@ -42,16 +42,12 @@ func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageS
 	return &sink, nil
 }
 
-// AsyncMessageSink represents a nats-streaming server and implements the
-// substrate.AsyncMessageSink interface.
-type AsyncMessageSink struct {
+type asyncMessageSink struct {
 	subject string
 	sc      stan.Conn // nats streaming
 }
 
-// PublishMessages implements the the PublishMessages method of the
-// substrate.AsyncMessageSink interface.
-func (p *AsyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
+func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
 
 	conn := p.sc
 
@@ -97,15 +93,11 @@ func (p *AsyncMessageSink) PublishMessages(ctx context.Context, acks chan<- subs
 	}
 }
 
-// Close implements the Close method of the substrate.AsyncMessageSink
-// interface.
-func (p *AsyncMessageSink) Close() error {
+func (p *asyncMessageSink) Close() error {
 	return p.sc.Close()
 }
 
-// Status implements the Status method of the substrate.AsyncMessageSink
-// interface.
-func (p *AsyncMessageSink) Status() (*substrate.Status, error) {
+func (p *asyncMessageSink) Status() (*substrate.Status, error) {
 	return natsStatus(p.sc.NatsConn())
 }
 
@@ -121,7 +113,7 @@ type AsyncMessageSourceConfig struct {
 	AckWait     time.Duration
 }
 
-type AsyncMessageSource struct {
+type asyncMessageSource struct {
 	conn stan.Conn
 	conf AsyncMessageSourceConfig
 }
@@ -135,7 +127,7 @@ func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSo
 	if err != nil {
 		return nil, err
 	}
-	return &AsyncMessageSource{conn, c}, nil
+	return &asyncMessageSource{conn, c}, nil
 }
 
 type consumerMessage struct {
@@ -146,9 +138,7 @@ func (cm *consumerMessage) Data() []byte {
 	return cm.m.Data
 }
 
-// ConsumeMessages implements the the ConsumeMessages method of the
-// substrate.AsyncMessageSource interface.
-func (c *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
+func (c *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
 
 	msgsToAck := make(chan *consumerMessage)
 
@@ -195,15 +185,11 @@ func (c *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<
 	return err
 }
 
-// Close implements the Close method of the substrate.AsyncMessageSource
-// interface.
-func (ams *AsyncMessageSource) Close() error {
+func (ams *asyncMessageSource) Close() error {
 	return ams.conn.Close()
 }
 
-// Status implements the Status method of the substrate.AsyncMessageSource
-// interface.
-func (ams *AsyncMessageSource) Status() (*substrate.Status, error) {
+func (ams *asyncMessageSource) Status() (*substrate.Status, error) {
 	return natsStatus(ams.conn.NatsConn())
 }
 
