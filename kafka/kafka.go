@@ -16,9 +16,9 @@ var (
 
 const (
 	// OffsetOldest indicates the oldest appropriate message available on the broker.
-	OffsetOldest int64 = -2
+	OffsetOldest int64 = sarama.OffsetOldest
 	// OffsetNewest indicates the next appropriate message available on the broker.
-	OffsetNewest int64 = -1
+	OffsetNewest int64 = sarama.OffsetNewest
 
 	defaultMetadataRefreshFrequency = 10 * time.Minute
 )
