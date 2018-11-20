@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	_ substrate.AsyncMessageSink   = (*AsyncMessageSink)(nil)
-	_ substrate.AsyncMessageSource = (*AsyncMessageSource)(nil)
+	_ substrate.AsyncMessageSink   = (*asyncMessageSink)(nil)
+	_ substrate.AsyncMessageSource = (*asyncMessageSource)(nil)
 )
 
 const (
@@ -39,7 +39,7 @@ func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageS
 		return nil, err
 	}
 
-	sink := AsyncMessageSink{
+	sink := asyncMessageSink{
 		client:  client,
 		Topic:   config.Topic,
 		KeyFunc: config.KeyFunc,
@@ -47,15 +47,13 @@ func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageS
 	return &sink, nil
 }
 
-type AsyncMessageSink struct {
+type asyncMessageSink struct {
 	client  sarama.Client
 	Topic   string
 	KeyFunc func(substrate.Message) []byte
 }
 
-// PublishMessages implements the PublishMessages method of the
-// substrate.AsyncMessageSink interface.
-func (ams *AsyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
+func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
 
 	producer, err := sarama.NewAsyncProducerFromClient(ams.client)
 	if err != nil {
@@ -70,7 +68,7 @@ func (ams *AsyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 	return producer.Close()
 }
 
-func (ams *AsyncMessageSink) doPublishMessages(ctx context.Context, producer sarama.AsyncProducer, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
+func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sarama.AsyncProducer, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
 
 	input := producer.Input()
 	errs := producer.Errors()
@@ -104,7 +102,7 @@ func (ams *AsyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 	}
 }
 
-func (ams *AsyncMessageSink) Status() (*substrate.Status, error) {
+func (ams *asyncMessageSink) Status() (*substrate.Status, error) {
 	return status(ams.client, ams.Topic)
 }
 
@@ -137,7 +135,7 @@ func (ams *AsyncMessageSinkConfig) buildSaramaProducerConfig() *sarama.Config {
 
 // Close implements the Close method of the substrate.AsyncMessageSink
 // interface.
-func (ams *AsyncMessageSink) Close() error {
+func (ams *asyncMessageSink) Close() error {
 	return ams.client.Close()
 }
 
@@ -183,14 +181,14 @@ func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSo
 		return nil, err
 	}
 
-	return &AsyncMessageSource{
+	return &asyncMessageSource{
 		client:        client,
 		consumerGroup: c.ConsumerGroup,
 		topic:         c.Topic,
 	}, nil
 }
 
-type AsyncMessageSource struct {
+type asyncMessageSource struct {
 	client        *cluster.Client
 	consumerGroup string
 	topic         string
@@ -204,8 +202,7 @@ func (cm *consumerMessage) Data() []byte {
 	return cm.cm.Value
 }
 
-// ConsumeMessages implements the ConsumeMessages method of the substrate.AsyncMessageSource interface.
-func (ams *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
+func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
 
 	c, err := cluster.NewConsumerFromClient(ams.client, ams.consumerGroup, []string{ams.topic})
 	if err != nil {
@@ -258,13 +255,11 @@ func (ams *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 	}
 }
 
-func (ams *AsyncMessageSource) Status() (*substrate.Status, error) {
+func (ams *asyncMessageSource) Status() (*substrate.Status, error) {
 	return status(ams.client, ams.topic)
 }
 
-// Close implements the Close method of the substrate.AsyncMessageSource
-// interface.
-func (ams *AsyncMessageSource) Close() error {
+func (ams *asyncMessageSource) Close() error {
 	return ams.client.Close()
 
 }
