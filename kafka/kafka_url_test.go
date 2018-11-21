@@ -113,7 +113,7 @@ func TestKafkaSource(t *testing.T) {
 		},
 		{
 			name:  "everything",
-			input: "kafka://localhost:123/t1/?offset=latest&consumer-group=g1&metadata-refresh=2s&broker=localhost:234&broker=localhost:345",
+			input: "kafka://localhost:123/t1/?offset=newest&consumer-group=g1&metadata-refresh=2s&broker=localhost:234&broker=localhost:345",
 			expected: AsyncMessageSourceConfig{
 				Brokers:                  []string{"localhost:123", "localhost:234", "localhost:345"},
 				ConsumerGroup:            "g1",
