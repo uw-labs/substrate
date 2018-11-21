@@ -15,7 +15,7 @@ import (
 	cluster "github.com/bsm/sarama-cluster"
 	"github.com/google/uuid"
 	"github.com/uw-labs/substrate"
-	"github.com/uw-labs/substrate/testshared"
+	"github.com/uw-labs/substrate/internal/testshared"
 )
 
 func TestAll(t *testing.T) {
