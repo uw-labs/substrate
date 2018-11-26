@@ -60,6 +60,8 @@ func (ks *testServer) NewProducer(topic string) substrate.AsyncMessageSink {
 	return s
 }
 
+func (ks *testServer) TestEnd() {}
+
 func (ks *testServer) Kill() error {
 	cmd := exec.Command("docker", "rm", "-f", ks.containerName)
 

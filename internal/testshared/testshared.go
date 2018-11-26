@@ -20,6 +20,7 @@ import (
 type TestServer interface {
 	NewConsumer(topic string, groupID string) substrate.AsyncMessageSource
 	NewProducer(topic string) substrate.AsyncMessageSink
+	TestEnd()
 }
 
 // TestAll is the main entrypoint from the backend implmenentation tests to
@@ -45,6 +46,7 @@ func TestAll(t *testing.T, ts TestServer) {
 			x(t, ts)
 		}
 		t.Run(runtime.FuncForPC(reflect.ValueOf(x).Pointer()).Name(), f)
+		ts.TestEnd()
 	}
 }
 
