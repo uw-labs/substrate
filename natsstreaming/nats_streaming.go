@@ -5,12 +5,12 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/nats-io/go-nats-streaming"
 	"github.com/nats-io/go-nats-streaming/pb"
 	"github.com/uw-labs/substrate"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -50,13 +50,7 @@ type asyncMessageSink struct {
 
 func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
 
-	var wg sync.WaitGroup
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer func() {
-		cancel()
-		wg.Wait()
-	}()
+	eg, ctx := errgroup.WithContext(ctx)
 
 	conn := p.sc
 
@@ -69,62 +63,60 @@ func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- subs
 	}
 
 	toAck := make(chan toAckType)
-	ackErrs := make(chan error, 1)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	eg.Go(func() error {
 		ackMap := make(map[string]substrate.Message)
 		for {
 			select {
 			case natsGUID := <-natsAcks:
 				msg := ackMap[natsGUID]
 				if msg == nil {
-					ackErrs <- fmt.Errorf("got ack from nats streaming for unknown guid %v", natsGUID)
-					return
+					return fmt.Errorf("got ack from nats streaming for unknown guid %v", natsGUID)
 				}
 				delete(ackMap, natsGUID)
 				select {
 				case acks <- msg:
 				case <-ctx.Done():
 					//return ctx.Err()
-					return
+					return nil
 				}
 			case ta := <-toAck:
 				ackMap[ta.guid] = ta.message
 			case <-ctx.Done():
-				return
+				return nil
 			}
 		}
-	}()
+	})
 
-	for {
-		select {
-		case <-ctx.Done():
-			//return ctx.Err()
-			return nil
-		case msg := <-messages:
-			guid, err := conn.PublishAsync(p.subject, msg.Data(), func(guid string, err error) {
-				if err != nil {
-					select {
-					case natsAckErrs <- err:
-					default:
+	eg.Go(func() error {
+		for {
+			select {
+			case <-ctx.Done():
+				//return ctx.Err()
+				return nil
+			case ne := <-natsAckErrs:
+				return ne
+
+			case msg := <-messages:
+				guid, err := conn.PublishAsync(p.subject, msg.Data(), func(guid string, err error) {
+					if err != nil {
+						select {
+						case natsAckErrs <- err:
+						default:
+						}
+						return
 					}
-					return
+					natsAcks <- guid
+				})
+				if err != nil {
+					return err
 				}
-				natsAcks <- guid
-			})
-			if err != nil {
-				return err
+				toAck <- toAckType{guid, msg}
 			}
-			toAck <- toAckType{guid, msg}
-
-		case ne := <-natsAckErrs:
-			return ne
-		case ae := <-ackErrs:
-			return ae
 		}
-	}
+	})
+
+	return eg.Wait()
 }
 
 func (p *asyncMessageSink) Close() error {
