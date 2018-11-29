@@ -10,6 +10,19 @@ type Message interface {
 	Data() []byte
 }
 
+// DiscardableMessage allows a consumer to discard the payload after use (but
+// before acking) in order to release memory earlier.  This can be useful in
+// cases where a consumer reads a very large number of messages before acking
+// any of them.
+// Since not all backends implement this, a checked type assertion is recommended.
+type DiscardableMessage interface {
+	Message
+	// DiscardPayload discards the payload of the message. After calling this,
+	// Calls to Data() will panic.
+	// Calling this a second or subsequent time has no effect.
+	DiscardPayload()
+}
+
 // AsyncMessageSink represents a message sink that allows publishing messages,
 // and multiple messages can be in flight before any acks are recieved,
 // depending upon the configuration of the underlying message sink.
