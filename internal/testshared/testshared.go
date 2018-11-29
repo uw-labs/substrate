@@ -41,6 +41,7 @@ func TestAll(t *testing.T, ts TestServer) {
 		testConsumeStatusOk,
 		testConsumeStatusFail,
 		testPublishMultipleMessagesOneConsumer,
+		testOnePublisherOneConsumerConsumeWithoutAckingDiscardedPayload,
 	} {
 		f := func(t *testing.T) {
 			x(t, ts)
@@ -473,6 +474,75 @@ func testPublishMultipleMessagesOneConsumer(t *testing.T, ts TestServer) {
 
 }
 
+func testOnePublisherOneConsumerConsumeWithoutAckingDiscardedPayload(t *testing.T, ts TestServer) {
+	assert := assert.New(t)
+
+	topic := generateID()
+	consumerID := generateID()
+
+	cons := ts.NewConsumer(topic, consumerID)
+	prod := ts.NewProducer(topic)
+
+	prodCtx, prodCancel := context.WithCancel(context.Background())
+
+	prodMsgs := make(chan substrate.Message, 1024)
+	prodAcks := make(chan substrate.Message, 1024)
+	prodErrs := make(chan error, 1)
+	go func() {
+		prodErrs <- prod.PublishMessages(prodCtx, prodAcks, prodMsgs)
+	}()
+
+	messageText := "messageText234"
+
+	m := testMessage([]byte(messageText))
+	produceAndCheckAck(prodCtx, t, prodMsgs, prodAcks, &m)
+	prodCancel()
+
+	if err := <-prodErrs; err != nil {
+		t.Errorf("unexpected error from consume : %s", err)
+	}
+	if err := prod.Close(); err != nil {
+		t.Errorf("unexpected error closing producer: %s", err)
+	}
+
+	// consume once without ack
+	cons1Ctx, cons1Cancel := context.WithCancel(context.Background())
+	cons1Msgs := make(chan substrate.Message, 1024)
+	cons1Acks := make(chan substrate.Message, 1024)
+	cons1Errs := make(chan error, 1)
+	go func() {
+		cons1Errs <- cons.ConsumeMessages(cons1Ctx, cons1Msgs, cons1Acks)
+	}()
+
+	m1 := <-cons1Msgs
+	assert.Equal(messageText, string(m1.Data()))
+	cons1Cancel()
+	if err := <-cons1Errs; err != nil {
+		t.Errorf("unexpected error from consume : %s", err)
+	}
+
+	// consume again with same id, and we should get the same message
+	cons2Ctx, cons2Cancel := context.WithCancel(context.Background())
+	cons2Msgs := make(chan substrate.Message, 1024)
+	cons2Acks := make(chan substrate.Message, 1024)
+	cons2Errs := make(chan error, 1)
+	go func() {
+		cons2Errs <- cons.ConsumeMessages(cons2Ctx, cons2Msgs, cons2Acks)
+	}()
+
+	msgStr := consumeAndAckDiscard(cons2Ctx, t, cons2Msgs, cons2Acks)
+	assert.Equal(messageText, msgStr)
+
+	cons2Cancel()
+	if err := <-cons2Errs; err != nil {
+		t.Errorf("unexpected error from consume : %s", err)
+	}
+
+	if err := cons.Close(); err != nil {
+		t.Errorf("unexpected error closing consumer: %s", err)
+	}
+}
+
 // Helper functions below here
 
 func connectSendmessageAndClose(t *testing.T, ts TestServer, topic string, messageText string, msgID string) {
@@ -542,6 +612,39 @@ func consumeAndAck(ctx context.Context, t *testing.T, consMsgs <-chan substrate.
 	}
 
 	return string(msg.Data())
+}
+
+func consumeAndAckDiscard(ctx context.Context, t *testing.T, consMsgs <-chan substrate.Message, consAcks chan<- substrate.Message) string {
+
+	var msg substrate.Message
+
+	// receive it
+	select {
+	case msg = <-consMsgs:
+	case <-ctx.Done():
+		if ctx.Err() != nil {
+			t.Error(ctx.Err())
+		}
+		return ""
+	}
+
+	ret := string(msg.Data())
+
+	if dm, ok := msg.(substrate.DiscardableMessage); ok {
+		dm.DiscardPayload()
+	}
+
+	// ack receipt
+	select {
+	case consAcks <- msg:
+	case <-ctx.Done():
+		if ctx.Err() != nil {
+			t.Error(ctx.Err())
+		}
+		return ""
+	}
+
+	return ret
 }
 
 func generateID() string {
