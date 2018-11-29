@@ -85,7 +85,7 @@ func runServer() (*testServer, error) {
 		"--rm",
 		"--name", containerName,
 		"-p", "4222:4222",
-		"nats-streaming:0.10.2-linux",
+		"nats-streaming:0.11.2-linux",
 	)
 	if err := cmd.Run(); err != nil {
 		return nil, err
