@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/nats-io/go-nats-streaming"
@@ -49,11 +50,54 @@ type asyncMessageSink struct {
 
 func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
 
+	var wg sync.WaitGroup
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer func() {
+		cancel()
+		wg.Wait()
+	}()
+
 	conn := p.sc
 
-	ackMap := make(map[string]substrate.Message)
-	natsAcks := make(chan string, cap(messages))
+	natsAcks := make(chan string)
 	natsAckErrs := make(chan error, 1)
+
+	type toAckType struct {
+		guid    string
+		message substrate.Message
+	}
+
+	toAck := make(chan toAckType)
+	ackErrs := make(chan error, 1)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ackMap := make(map[string]substrate.Message)
+		for {
+			select {
+			case natsGUID := <-natsAcks:
+				msg := ackMap[natsGUID]
+				if msg == nil {
+					ackErrs <- fmt.Errorf("got ack from nats streaming for unknown guid %v", natsGUID)
+					return
+				}
+				delete(ackMap, natsGUID)
+				select {
+				case acks <- msg:
+				case <-ctx.Done():
+					//return ctx.Err()
+					return
+				}
+			case ta := <-toAck:
+				ackMap[ta.guid] = ta.message
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -73,22 +117,12 @@ func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- subs
 			if err != nil {
 				return err
 			}
-			ackMap[guid] = msg
+			toAck <- toAckType{guid, msg}
 
-		case natsGUID := <-natsAcks:
-			msg := ackMap[natsGUID]
-			if msg == nil {
-				return fmt.Errorf("got ack from nats streaming for unknown guid %v", natsGUID)
-			}
-			delete(ackMap, natsGUID)
-			select {
-			case acks <- msg:
-			case <-ctx.Done():
-				//return ctx.Err()
-				return nil
-			}
 		case ne := <-natsAckErrs:
 			return ne
+		case ae := <-ackErrs:
+			return ae
 		}
 	}
 }
