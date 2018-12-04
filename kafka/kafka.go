@@ -196,10 +196,36 @@ type asyncMessageSource struct {
 
 type consumerMessage struct {
 	cm *sarama.ConsumerMessage
+
+	offset *struct {
+		topic     string
+		partition int32
+		offset    int64
+	}
 }
 
 func (cm *consumerMessage) Data() []byte {
+	if cm.cm == nil {
+		panic("attempt to use payload after discarding.")
+	}
 	return cm.cm.Value
+}
+
+func (cm *consumerMessage) DiscardPayload() {
+	if cm.offset != nil {
+		// already discarded
+		return
+	}
+	cm.offset = &struct {
+		topic     string
+		partition int32
+		offset    int64
+	}{
+		cm.cm.Topic,
+		cm.cm.Partition,
+		cm.cm.Offset,
+	}
+	cm.cm = nil
 }
 
 func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
@@ -243,7 +269,12 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 					Expected: forAcking[0],
 				}
 			default:
-				c.MarkOffset(forAcking[0].cm, "")
+				if forAcking[0].offset != nil {
+					off := forAcking[0].offset
+					c.MarkPartitionOffset(off.topic, off.partition, off.offset, "")
+				} else {
+					c.MarkOffset(forAcking[0].cm, "")
+				}
 				forAcking = forAcking[1:]
 			}
 
