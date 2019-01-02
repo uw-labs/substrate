@@ -67,7 +67,7 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 	if ams.insecure {
 		opts = append(opts, grpc.WithInsecure())
 	}
-	opts = append(opts, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1024*1024*16)))
+	opts = append(opts, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1024*1024*64)))
 
 	conn, err := grpc.DialContext(ctx, ams.broker, opts...)
 	if err != nil {
