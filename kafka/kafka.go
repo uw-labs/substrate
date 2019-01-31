@@ -152,7 +152,7 @@ type AsyncMessageSourceConfig struct {
 }
 
 func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() *cluster.Config {
-	offset := OffsetNewest
+	offset := OffsetOldest
 	if ams.Offset != 0 {
 		offset = ams.Offset
 	}
