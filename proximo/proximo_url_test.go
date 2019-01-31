@@ -105,12 +105,12 @@ func TestProximoSource(t *testing.T) {
 		},
 		{
 			name:  "everything",
-			input: "proximo://localhost:123/t1/?offset=newest&consumer-group=g1",
+			input: "proximo://localhost:123/t1/?offset=newest&consumer-group=g1&offset=newest",
 			expected: AsyncMessageSourceConfig{
 				Broker:        "localhost:123",
 				ConsumerGroup: "g1",
-				//Offset:   foo,
-				Topic: "t1",
+				Offset:        OffsetNewest,
+				Topic:         "t1",
 			},
 			expectedErr: nil,
 		},

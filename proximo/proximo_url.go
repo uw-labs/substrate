@@ -66,17 +66,15 @@ func newProximoSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 		conf.Insecure = false
 	}
 
-	/*
-		switch q.Get("offset") {
-		case "newest":
-			conf.Offset = OffsetNewest
-		case "oldest":
-			conf.Offset = OffsetOldest
-		case "":
-		default:
-			return nil, fmt.Errorf("ignoring unknown offset value '%s'", q.Get("offset"))
-		}
-	*/
+	switch offset := q.Get("offset"); offset {
+	case "newest":
+		conf.Offset = OffsetNewest
+	case "oldest":
+		conf.Offset = OffsetOldest
+	case "":
+	default:
+		return nil, fmt.Errorf("unknown offset value '%s'", offset)
+	}
 
 	return proximoSourcer(conf)
 }

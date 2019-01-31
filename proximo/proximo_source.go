@@ -2,6 +2,7 @@ package proximo
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/pkg/errors"
@@ -9,15 +10,15 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
-	proximoc "github.com/uw-labs/proximo/proximoc-go"
+	proximo "github.com/uw-labs/proximo/proto"
 	"github.com/uw-labs/substrate"
 )
 
 const (
 	// OffsetOldest indicates the oldest appropriate message available on the broker.
-	OffsetOldest int64 = 1
+	OffsetOldest int64 = -2
 	// OffsetNewest indicates the next appropriate message available on the broker.
-	OffsetNewest int64 = 2
+	OffsetNewest int64 = -1
 )
 
 var (
@@ -30,17 +31,28 @@ type AsyncMessageSourceConfig struct {
 	ConsumerGroup string
 	Topic         string
 	Broker        string
-	//	Offset        int64 TODO: offset for proximo
-	Insecure bool
+	Offset        int64
+	Insecure      bool
 }
 
 func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
-
+	var offset proximo.Offset
+	switch c.Offset {
+	case 0:
+		offset = proximo.OFFSET_DEFAULT
+	case OffsetOldest:
+		offset = proximo.OFFSET_OLDEST
+	case OffsetNewest:
+		offset = proximo.OFFSET_NEWEST
+	default:
+		return nil, fmt.Errorf("invalid offset: '%v'", c.Offset)
+	}
 	return &asyncMessageSource{
 		broker:        c.Broker,
 		consumerGroup: c.ConsumerGroup,
 		topic:         c.Topic,
 		insecure:      c.Insecure,
+		offset:        offset,
 	}, nil
 }
 
@@ -48,11 +60,12 @@ type asyncMessageSource struct {
 	broker        string
 	consumerGroup string
 	topic         string
+	offset        proximo.Offset
 	insecure      bool
 }
 
 type consMsg struct {
-	pm *proximoc.Message
+	pm *proximo.Message
 }
 
 func (cm consMsg) Data() []byte {
@@ -75,7 +88,7 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 	}
 	defer conn.Close()
 
-	client := proximoc.NewMessageSourceClient(conn)
+	client := proximo.NewMessageSourceClient(conn)
 
 	stream, err := client.Consume(ctx)
 	if err != nil {
@@ -84,10 +97,11 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 
 	defer stream.CloseSend()
 
-	if err := stream.Send(&proximoc.ConsumerRequest{
-		StartRequest: &proximoc.StartConsumeRequest{
-			Topic:    ams.topic,
-			Consumer: ams.consumerGroup,
+	if err := stream.Send(&proximo.ConsumerRequest{
+		StartRequest: &proximo.StartConsumeRequest{
+			Topic:         ams.topic,
+			Consumer:      ams.consumerGroup,
+			InitialOffset: ams.offset,
 		},
 	}); err != nil {
 		return err
@@ -109,7 +123,7 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 					return substrate.InvalidAckError{Acked: a, Expected: toAckList[0]}
 				default:
 					id := toAckList[0].(consMsg).pm.Id
-					if err := stream.Send(&proximoc.ConsumerRequest{Confirmation: &proximoc.Confirmation{MsgID: id}}); err != nil {
+					if err := stream.Send(&proximo.ConsumerRequest{Confirmation: &proximo.Confirmation{MsgID: id}}); err != nil {
 						if err == io.EOF || grpc.Code(err) == codes.Canceled {
 							return nil
 						}

@@ -33,7 +33,7 @@ require (
 	github.com/prometheus/client_model v0.0.0-20180712105110-5c3871d89910
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a // indirect
 	github.com/stretchr/testify v1.3.0
-	github.com/uw-labs/proximo v0.0.0-20190118164843-7fbc852fa788
+	github.com/uw-labs/proximo v0.0.0-20190131184912-ec8f78bfbc6e
 	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4
 	google.golang.org/grpc v1.18.0
 )
