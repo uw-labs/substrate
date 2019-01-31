@@ -121,7 +121,7 @@ func TestNatsStreamingURLSource(t *testing.T) {
 		},
 		{
 			name:  "everything",
-			input: "nats-streaming://localhost:123/t1?cluster-id=cid1&client-id=clie1&queue-group=qg1&ack-wait=30s&max-in-flight=1234",
+			input: "nats-streaming://localhost:123/t1?cluster-id=cid1&client-id=clie1&queue-group=qg1&ack-wait=30s&max-in-flight=1234&offset=oldest",
 			expected: AsyncMessageSourceConfig{
 				URL:         "nats://localhost:123",
 				ClusterID:   "cid1",
@@ -130,6 +130,7 @@ func TestNatsStreamingURLSource(t *testing.T) {
 				Subject:     "t1",
 				AckWait:     30 * time.Second,
 				MaxInFlight: 1234,
+				Offset:      OffsetOldest,
 			},
 			expectedErr: false,
 		},

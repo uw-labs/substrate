@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/nats-io/go-nats-streaming"
-	"github.com/nats-io/go-nats-streaming/pb"
 	"github.com/uw-labs/substrate"
 )
 
@@ -18,7 +17,14 @@ var (
 	_ substrate.AsyncMessageSource = (*asyncMessageSource)(nil)
 )
 
-// AsyncMessageSinkConfig is the configarion parameters for an
+const (
+	// OffsetOldest indicates the oldest appropriate message available on the broker.
+	OffsetOldest int64 = -2
+	// OffsetNewest indicates the next appropriate message available on the broker.
+	OffsetNewest int64 = -1
+)
+
+// AsyncMessageSinkConfig is the configuration parameters for an
 // AsyncMessageSink.
 type AsyncMessageSinkConfig struct {
 	URL       string
@@ -145,6 +151,7 @@ type AsyncMessageSourceConfig struct {
 	QueueGroup  string
 	MaxInFlight int
 	AckWait     time.Duration
+	Offset      int64
 }
 
 type asyncMessageSource struct {
@@ -157,6 +164,13 @@ func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSo
 	if clientID == "" {
 		clientID = c.QueueGroup + generateID()
 	}
+	switch {
+	case c.Offset == 0:
+		c.Offset = OffsetOldest
+	case c.Offset < -2:
+		return nil, fmt.Errorf("invalid offset: '%v'", c.Offset)
+	}
+
 	conn, err := stan.Connect(c.ClusterID, clientID, stan.NatsURL(c.URL))
 	if err != nil {
 		return nil, err
@@ -194,12 +208,21 @@ func (c *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<
 	if ackWait == 0 {
 		ackWait = stan.DefaultAckWait
 	}
+	var offsetOpt stan.SubscriptionOption
+	switch offset := c.conf.Offset; offset {
+	case OffsetOldest:
+		offsetOpt = stan.DeliverAllAvailable()
+	case OffsetNewest:
+		offsetOpt = stan.StartWithLastReceived()
+	default:
+		offsetOpt = stan.StartAtSequence(uint64(offset))
+	}
 
 	sub, err := c.conn.QueueSubscribe(
 		c.conf.Subject,
 		c.conf.QueueGroup,
 		f,
-		stan.StartAt(pb.StartPosition_First),
+		offsetOpt,
 		stan.DurableName(c.conf.QueueGroup),
 		stan.SetManualAckMode(),
 		stan.AckWait(ackWait),
