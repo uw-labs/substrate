@@ -2,6 +2,7 @@ package substrate
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -32,7 +33,25 @@ func TestSyncProduceAdapterBasic(t *testing.T) {
 	default:
 		t.Error("underlying async sink didn't get closed")
 	}
+
+	assert.Equal(ErrSinkAlreadyClosed, sc.Close())
+	assert.Equal(ErrSinkAlreadyClosed, sc.PublishMessage(ctx, &m1))
 }
+
+func TestSyncProduceAdapter_ErrorOnSend(t *testing.T) {
+	ap := &mockAsyncSink{0, make(chan struct{}, 1)}
+	sc := NewSynchronousMessageSink(ap)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	msg := message([]byte{'t'})
+
+	assert.Equal(t, ErrSinkClosedDuringSend, sc.PublishMessage(ctx, &msg))
+	assert.Equal(t, errSeenAllMessages, sc.(*synchronousMessageSinkAdapter).closeErr)
+}
+
+var errSeenAllMessages = errors.New("mock sink saw specified number of messages")
 
 type mockAsyncSink struct {
 	toAckCount int
@@ -53,6 +72,8 @@ func (mock *mockAsyncSink) PublishMessages(ctx context.Context, acks chan<- Mess
 				case acks <- m:
 				}
 				mock.toAckCount--
+			} else {
+				return errSeenAllMessages
 			}
 		}
 	}
