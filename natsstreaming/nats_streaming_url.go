@@ -54,6 +54,16 @@ func newNatsStreamingSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 		Subject:    subject,
 	}
 
+	switch offset := q.Get("offset"); offset {
+	case "newest":
+		conf.Offset = OffsetNewest
+	case "oldest":
+		conf.Offset = OffsetOldest
+	case "":
+	default:
+		return nil, fmt.Errorf("unknown offset value '%s'", offset)
+	}
+
 	maxInflightString := q.Get("max-in-flight")
 	if maxInflightString != "" {
 		maxInflight, err := strconv.Atoi(maxInflightString)
