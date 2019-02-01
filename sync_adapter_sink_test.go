@@ -48,7 +48,8 @@ func TestSyncProduceAdapter_ErrorOnSend(t *testing.T) {
 	msg := message([]byte{'t'})
 
 	assert.Equal(t, ErrSinkClosedDuringSend, sc.PublishMessage(ctx, &msg))
-	assert.Equal(t, errSeenAllMessages, sc.(*synchronousMessageSinkAdapter).closeErr)
+	assert.Equal(t, errSeenAllMessages, sc.Close())
+	assert.Equal(t, ErrSinkAlreadyClosed, sc.Close())
 }
 
 var errSeenAllMessages = errors.New("mock sink saw specified number of messages")

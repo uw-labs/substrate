@@ -23,7 +23,7 @@ func NewSynchronousMessageSink(ams AsyncMessageSink) SynchronousMessageSink {
 		ams,
 
 		make(chan struct{}),
-		make(chan struct{}),
+		make(chan error, 1),
 		nil,
 
 		make(chan *produceReq),
@@ -36,7 +36,7 @@ type synchronousMessageSinkAdapter struct {
 	aprod AsyncMessageSink
 
 	closeReq chan struct{}
-	closed   chan struct{}
+	closed   chan error
 	closeErr error
 
 	toProduce chan *produceReq
@@ -102,13 +102,20 @@ func (spa *synchronousMessageSinkAdapter) loop() {
 	spa.closeErr = eg.Wait()
 	if spa.closeErr == errSinkClosed {
 		spa.closeErr = nil
+	} else {
+		if spa.closeErr != nil {
+			spa.closed <- spa.closeErr
+		}
 	}
 	close(spa.closed)
 }
 
 func (spa *synchronousMessageSinkAdapter) Close() error {
 	select {
-	case <-spa.closed:
+	case err := <-spa.closed:
+		if err != nil {
+			return err
+		}
 		return ErrSinkAlreadyClosed
 	case spa.closeReq <- struct{}{}:
 		<-spa.closed
