@@ -12,14 +12,14 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/pkg/errors"
 
-	proximoc "github.com/uw-labs/proximo/proximoc-go"
+	"github.com/uw-labs/proximo/proximoc-go"
 	"github.com/uw-labs/substrate"
 )
 
 var (
 	_ substrate.AsyncMessageSink = (*asyncMessageSink)(nil)
 
-	errStoppedReceivingAcks = errors.New("stopped receiving acknowledgements")
+	errStreamClosed = errors.New("stream was closed")
 )
 
 type AsyncMessageSinkConfig struct {
@@ -79,7 +79,7 @@ func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 		return ams.passAcksToUser(ctx, acks, toAck, proximoAcks)
 	})
 
-	if err = eg.Wait(); err != nil && err != errStoppedReceivingAcks {
+	if err = eg.Wait(); err != nil && err != errStreamClosed {
 		return err
 	}
 	return nil
@@ -105,7 +105,10 @@ func (ams *asyncMessageSink) sendMessagesToProximo(ctx context.Context, stream m
 			case toAck <- &ackMessage{id: pMsg.Id, msg: msg}:
 			}
 			if err := stream.Send(&proximoc.PublisherRequest{Msg: pMsg}); err != nil {
-				return err
+				if err == io.EOF || status.Code(err) == codes.Canceled {
+					return errStreamClosed
+				}
+				return errors.Wrap(err, "failed to send message to proximo")
 			}
 		}
 	}
@@ -119,10 +122,10 @@ func (ams *asyncMessageSink) receiveAcksFromProximo(ctx context.Context, stream 
 	for {
 		conf, err := stream.Recv()
 		if err != nil {
-			if err != io.EOF && status.Code(err) != codes.Canceled {
-				return errors.Wrap(err, "failed to receive acknowledgement")
+			if err == io.EOF || status.Code(err) == codes.Canceled {
+				return errStreamClosed
 			}
-			return errStoppedReceivingAcks
+			return errors.Wrap(err, "failed to receive acknowledgement")
 		}
 		select {
 		case <-ctx.Done():
@@ -140,17 +143,23 @@ func (ams *asyncMessageSink) passAcksToUser(ctx context.Context, acks chan<- sub
 			return nil
 		case ack := <-toAck:
 			ackMap[ack.id] = ack.msg
-		case msgId := <-proximoAcks:
-			msg, ok := ackMap[msgId]
+		case msgID := <-proximoAcks:
+			msg, ok := ackMap[msgID]
 			if !ok {
 				return errors.New("received unexpected message confirmation from proximo")
 			}
-			select {
-			case <-ctx.Done():
-				return nil
-			case acks <- msg:
+			sent := false
+			for !sent {
+				select {
+				case <-ctx.Done():
+					return nil
+				case ack := <-toAck:
+					ackMap[ack.id] = ack.msg
+				case acks <- msg:
+					delete(ackMap, msgID)
+					sent = true
+				}
 			}
-			delete(ackMap, msgId)
 		}
 	}
 }

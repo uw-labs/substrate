@@ -32,6 +32,7 @@ func TestAll(t *testing.T, ts TestServer) {
 		testOnePublisherOneMessageOneConsumer,
 		testOnePublisherOneMessageTwoConsumers,
 		testPublisherShouldNotBlock,
+		testPublisherShouldNotBlockWhenIgnoringAcks,
 		testConsumerAckInvalidMessageID,
 		testAckWithoutRecieve,
 		testConsumeWithoutAck,
@@ -214,6 +215,9 @@ func testOnePublisherOneMessageTwoConsumers(t *testing.T, ts TestServer) {
 	if err := <-cons1Errs; err != nil {
 		t.Errorf("unexpected error from consume : %s", err)
 	}
+	if err := <-cons2Errs; err != nil {
+		t.Errorf("unexpected error from consume : %s", err)
+	}
 
 }
 
@@ -225,7 +229,7 @@ func testPublisherShouldNotBlock(t *testing.T, ts TestServer) {
 		testMessages = append(testMessages, &m)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	prod := ts.NewProducer(topic)
 
@@ -237,15 +241,62 @@ func testPublisherShouldNotBlock(t *testing.T, ts TestServer) {
 	}()
 
 	for _, m := range testMessages {
+		sent := false
+		for !sent {
+			select {
+			case prodMsgs <- m:
+				sent = true
+			case <-prodAcks:
+			case err := <-prodErrs:
+				if err != nil {
+					t.Errorf("unexpected error from produce: %s", err)
+				}
+			case <-ctx.Done():
+				t.Fatal("Producer should not block")
+			}
+		}
+	}
+}
+
+func testPublisherShouldNotBlockWhenIgnoringAcks(t *testing.T, ts TestServer) {
+	topic := generateID()
+	var testMessages []*testMessage
+	for i := 0; i < 1000; i++ {
+		m := testMessage([]byte(fmt.Sprintf("message%v", i)))
+		testMessages = append(testMessages, &m)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	prod := ts.NewProducer(topic)
+
+	prodMsgs := make(chan substrate.Message)
+	prodAcks := make(chan substrate.Message)
+	prodErrs := make(chan error, 2)
+	go func() {
+		prodErrs <- prod.PublishMessages(ctx, prodAcks, prodMsgs)
+	}()
+
+	for _, m := range testMessages {
 		select {
 		case prodMsgs <- m:
-		case <-prodAcks:
 		case err := <-prodErrs:
 			if err != nil {
 				t.Errorf("unexpected error from consume : %s", err)
 			}
 		case <-ctx.Done():
-			t.Fatal("Producer should not block")
+			t.Fatal("Producer should not block when ignoring acks")
+		}
+	}
+	for i := 0; i < len(testMessages); i++ {
+		select {
+		case <-prodAcks:
+		case err := <-prodErrs:
+			if err != nil {
+				t.Errorf("unexpected error from produce: %s", err)
+			}
+		case <-ctx.Done():
+			t.Fatal("Failed to receive all acks")
 		}
 	}
 }
