@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/Shopify/sarama"
 	"github.com/bsm/sarama-cluster"
 	"github.com/uw-labs/substrate"
@@ -239,23 +241,47 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 		_ = c.Close()
 	}()
 
+	toAck := make(chan *consumerMessage)
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		return ams.passMessagesToClient(ctx, c.Messages(), messages, toAck)
+	})
+	eg.Go(func() error {
+		return ams.passAcksToKafka(ctx, c, acks, toAck)
+	})
+
+	return eg.Wait()
+}
+
+func (ams *asyncMessageSource) passMessagesToClient(ctx context.Context, fromKafka <-chan *sarama.ConsumerMessage, messages chan<- substrate.Message, toAck chan<- *consumerMessage) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case msg := <-fromKafka:
+			message := &consumerMessage{cm: msg}
+
+			select {
+			case <-ctx.Done():
+				return nil
+			case toAck <- message:
+			}
+			select {
+			case <-ctx.Done():
+				return nil
+			case messages <- message:
+			}
+		}
+	}
+}
+
+func (ams *asyncMessageSource) passAcksToKafka(ctx context.Context, c *cluster.Consumer, acks <-chan substrate.Message, toAck <-chan *consumerMessage) error {
 	var forAcking []*consumerMessage
 
 	for {
 		select {
-		case msg := <-c.Messages():
-
-			message := &consumerMessage{
-				cm: msg,
-			}
-
-			select {
-			case <-ctx.Done():
-				return c.Close()
-			case messages <- message:
-			}
-
-			forAcking = append(forAcking, message)
+		case msg := <-toAck:
+			forAcking = append(forAcking, msg)
 		case ack := <-acks:
 			switch {
 			case len(forAcking) == 0:
@@ -277,7 +303,6 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 				}
 				forAcking = forAcking[1:]
 			}
-
 		case err := <-c.Errors():
 			return err
 		case <-ctx.Done():
@@ -292,5 +317,4 @@ func (ams *asyncMessageSource) Status() (*substrate.Status, error) {
 
 func (ams *asyncMessageSource) Close() error {
 	return ams.client.Close()
-
 }
