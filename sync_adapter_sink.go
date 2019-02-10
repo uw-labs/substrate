@@ -11,8 +11,8 @@ var (
 	// ErrSinkAlreadyClosed is an error returned when user tries to publish a message or
 	// close a sink after it was already closed.
 	ErrSinkAlreadyClosed = errors.New("sink was closed already")
-	// ErrSinkClosedDuringSend is an error returned when a sing is closed while sending a message.
-	ErrSinkClosedDuringSend = errors.New("sink was closed while sending the message")
+	// ErrSinkClosedOrFailedDuringSend is an error returned when a sink is closed or fails while sending a message.
+	ErrSinkClosedOrFailedDuringSend = errors.New("sink was closed or failed while sending the message")
 )
 
 // NewSynchronousMessageSink returns a new synchronous message sink, given an
@@ -67,7 +67,7 @@ func (spa *synchronousMessageSinkAdapter) loop() {
 			for _, req := range needAcks {
 				select {
 				case <-req.ctx.Done():
-				case req.done <- ErrSinkClosedDuringSend:
+				case req.done <- ErrSinkClosedOrFailedDuringSend:
 				}
 			}
 		}()
@@ -77,11 +77,11 @@ func (spa *synchronousMessageSinkAdapter) loop() {
 			case <-ctx.Done():
 				return nil
 			case pr := <-spa.toProduce:
+				needAcks = append(needAcks, pr)
 				select {
 				case <-ctx.Done():
 					return nil
 				case toSend <- pr.m:
-					needAcks = append(needAcks, pr)
 				case <-spa.closeReq:
 					// Need to return error to stop the publisher
 					return errSinkClosed

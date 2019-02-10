@@ -47,7 +47,7 @@ func TestSyncProduceAdapter_ErrorOnSend(t *testing.T) {
 
 	msg := message([]byte{'t'})
 
-	assert.Equal(t, ErrSinkClosedDuringSend, sc.PublishMessage(ctx, &msg))
+	assert.Equal(t, ErrSinkClosedOrFailedDuringSend, sc.PublishMessage(ctx, &msg))
 	assert.Equal(t, errSeenAllMessages, sc.Close())
 	assert.Equal(t, ErrSinkAlreadyClosed, sc.Close())
 }
