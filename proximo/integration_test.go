@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"os/exec"
 	"testing"
+	"time"
+
+	"google.golang.org/grpc"
 
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/internal/testshared"
@@ -29,9 +32,9 @@ type testServer struct {
 	port int
 }
 
-func (ks *testServer) NewConsumer(topic string, groupID string) substrate.AsyncMessageSource {
+func (ts *testServer) NewConsumer(topic string, groupID string) substrate.AsyncMessageSource {
 	s, err := NewAsyncMessageSource(AsyncMessageSourceConfig{
-		Broker:        fmt.Sprintf("localhost:%d", ks.port),
+		Broker:        fmt.Sprintf("localhost:%d", ts.port),
 		ConsumerGroup: groupID,
 		Topic:         topic,
 		//	Offset:        OffsetOldest,
@@ -44,7 +47,7 @@ func (ks *testServer) NewConsumer(topic string, groupID string) substrate.AsyncM
 	return s
 }
 
-func (ks *testServer) NewProducer(topic string) substrate.AsyncMessageSink {
+func (ts *testServer) NewProducer(topic string) substrate.AsyncMessageSink {
 	s, err := NewAsyncMessageSink(AsyncMessageSinkConfig{
 		Broker:   fmt.Sprintf("localhost:%d", ks.port),
 		Topic:    topic,
@@ -56,10 +59,10 @@ func (ks *testServer) NewProducer(topic string) substrate.AsyncMessageSink {
 	return s
 }
 
-func (ks *testServer) TestEnd() {}
+func (ts *testServer) TestEnd() {}
 
-func (ks *testServer) Kill() error {
-	return ks.cmd.Process.Kill()
+func (ts *testServer) Kill() error {
+	return ts.cmd.Process.Kill()
 }
 
 func runServer() (*testServer, error) {
@@ -72,10 +75,18 @@ func runServer() (*testServer, error) {
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
+	ts := &testServer{cmd, 6868}
 
-	ks := &testServer{cmd, 6868}
+	// Wait for server to start
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	conn, err := grpc.DialContext(ctx, fmt.Sprintf("localhost:%d", ts.port), grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
 
-	return ks, nil
+	return ts, nil
 }
 
 func generateID() string {
