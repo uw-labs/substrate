@@ -50,7 +50,11 @@ func (ams *AsyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 		select {
 		case success := <-successes:
 			ams.counter.WithLabelValues("success", ams.topic).Inc()
-			acks <- success
+			select {
+			case acks <- success:
+			case <-ctx.Done():
+				return <-errs
+			}
 		case <-ctx.Done():
 			return <-errs
 		case err := <-errs:
