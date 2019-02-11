@@ -36,19 +36,22 @@ type AsyncMessageSourceConfig struct {
 
 func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
 
+	conn, err := dialProximo(c.Broker, c.Insecure)
+	if err != nil {
+		return nil, err
+	}
+
 	return &asyncMessageSource{
-		broker:        c.Broker,
+		conn:          conn,
 		consumerGroup: c.ConsumerGroup,
 		topic:         c.Topic,
-		insecure:      c.Insecure,
 	}, nil
 }
 
 type asyncMessageSource struct {
-	broker        string
+	conn          *grpc.ClientConn
 	consumerGroup string
 	topic         string
-	insecure      bool
 }
 
 type consMsg struct {
@@ -62,26 +65,12 @@ func (cm consMsg) Data() []byte {
 func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
 
 	eg, ctx := errgroup.WithContext(ctx)
-
-	var opts []grpc.DialOption
-	if ams.insecure {
-		opts = append(opts, grpc.WithInsecure())
-	}
-	opts = append(opts, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1024*1024*64)))
-
-	conn, err := grpc.DialContext(ctx, ams.broker, opts...)
-	if err != nil {
-		return errors.Wrapf(err, "fail to dial %s", ams.broker)
-	}
-	defer conn.Close()
-
-	client := proximoc.NewMessageSourceClient(conn)
+	client := proximoc.NewMessageSourceClient(ams.conn)
 
 	stream, err := client.Consume(ctx)
 	if err != nil {
 		return errors.Wrap(err, "fail to consume")
 	}
-
 	defer stream.CloseSend()
 
 	if err := stream.Send(&proximoc.ConsumerRequest{
@@ -156,9 +145,9 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 }
 
 func (ams *asyncMessageSource) Status() (*substrate.Status, error) {
-	return &substrate.Status{Working: true}, nil
+	return proximoStatus(ams.conn)
 }
 
 func (ams *asyncMessageSource) Close() error {
-	return nil
+	return ams.conn.Close()
 }

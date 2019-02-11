@@ -28,18 +28,17 @@ type AsyncMessageSinkConfig struct {
 	Insecure bool
 }
 
-func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
+func NewAsyncMessageSink(c AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
 
-	conn, err := grpc.Dial(config.Broker, grpc.WithInsecure())
+	conn, err := dialProximo(c.Broker, c.Insecure)
 	if err != nil {
 		return nil, err
 	}
 
-	sink := asyncMessageSink{
+	return &asyncMessageSink{
 		conn:  conn,
-		topic: config.Topic,
-	}
-	return &sink, nil
+		topic: c.Topic,
+	}, nil
 }
 
 type asyncMessageSink struct {
@@ -165,7 +164,7 @@ func (ams *asyncMessageSink) passAcksToUser(ctx context.Context, acks chan<- sub
 }
 
 func (ams *asyncMessageSink) Status() (*substrate.Status, error) {
-	return &substrate.Status{Working: true}, nil
+	return proximoStatus(ams.conn)
 }
 
 // Close implements the Close method of the substrate.AsyncMessageSink
