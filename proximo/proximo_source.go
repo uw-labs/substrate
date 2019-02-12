@@ -55,11 +55,29 @@ type asyncMessageSource struct {
 }
 
 type consMsg struct {
+	id string
 	pm *proximoc.Message
 }
 
-func (cm consMsg) Data() []byte {
+func (cm *consMsg) Data() []byte {
+	if cm.pm == nil {
+		panic("attempt to use payload after discarding.")
+	}
 	return cm.pm.Data
+}
+
+func (cm *consMsg) DiscardPayload() {
+	if cm.pm != nil {
+		cm.id = cm.pm.GetId()
+		cm.pm = nil
+	}
+}
+
+func (cm *consMsg) getMsgID() string {
+	if cm.pm != nil {
+		return cm.pm.Id
+	}
+	return cm.id
 }
 
 func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
@@ -82,10 +100,10 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 		return err
 	}
 
-	toAck := make(chan substrate.Message)
+	toAck := make(chan *consMsg)
 
 	eg.Go(func() error {
-		var toAckList []substrate.Message
+		var toAckList []*consMsg
 		for {
 			select {
 			case ta := <-toAck:
@@ -97,7 +115,7 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 				case a != toAckList[0]:
 					return substrate.InvalidAckError{Acked: a, Expected: toAckList[0]}
 				default:
-					id := toAckList[0].(consMsg).pm.Id
+					id := toAckList[0].getMsgID()
 					if err := stream.Send(&proximoc.ConsumerRequest{Confirmation: &proximoc.Confirmation{MsgID: id}}); err != nil {
 						if err == io.EOF || grpc.Code(err) == codes.Canceled {
 							return nil
@@ -122,14 +140,14 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 				return nil
 			}
 
-			m := consMsg{in}
+			m := &consMsg{pm: in}
 			select {
 			case toAck <- m:
 			case <-ctx.Done():
 				return ctx.Err()
 			}
 			select {
-			case messages <- consMsg{in}:
+			case messages <- m:
 			case <-ctx.Done():
 				return ctx.Err()
 			}
