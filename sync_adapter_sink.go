@@ -2,8 +2,8 @@ package substrate
 
 import (
 	"context"
-	"errors"
 
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -24,8 +24,6 @@ func NewSynchronousMessageSink(ams AsyncMessageSink) SynchronousMessageSink {
 
 		make(chan struct{}),
 		make(chan error, 1),
-		nil,
-
 		make(chan *produceReq),
 	}
 	go spa.loop()
@@ -37,7 +35,6 @@ type synchronousMessageSinkAdapter struct {
 
 	closeReq chan struct{}
 	closed   chan error
-	closeErr error
 
 	toProduce chan *produceReq
 }
@@ -57,7 +54,10 @@ func (spa *synchronousMessageSinkAdapter) loop() {
 	eg, ctx := errgroup.WithContext(context.Background())
 
 	eg.Go(func() error {
-		return spa.aprod.PublishMessages(ctx, acks, toSend)
+		if err := spa.aprod.PublishMessages(ctx, acks, toSend); err != nil {
+			return err
+		}
+		return errSinkClosed // return error to shutdown the main loop
 	})
 
 	eg.Go(func() error {
@@ -99,12 +99,14 @@ func (spa *synchronousMessageSinkAdapter) loop() {
 		}
 	})
 
-	spa.closeErr = eg.Wait()
-	if spa.closeErr == errSinkClosed {
-		spa.closeErr = nil
+	// Wait for sink and loop to terminate and send close error tp closed channel
+	if sinkErr := eg.Wait(); sinkErr == nil || sinkErr == errSinkClosed {
+		spa.closed <- spa.aprod.Close()
 	} else {
-		if spa.closeErr != nil {
-			spa.closed <- spa.closeErr
+		if err := spa.aprod.Close(); err != nil {
+			spa.closed <- errors.Errorf("sink error: %v sink close error: %v", sinkErr, err)
+		} else {
+			spa.closed <- sinkErr
 		}
 	}
 	close(spa.closed)
@@ -112,18 +114,19 @@ func (spa *synchronousMessageSinkAdapter) loop() {
 
 func (spa *synchronousMessageSinkAdapter) Close() error {
 	select {
-	case err := <-spa.closed:
-		if err != nil {
+	case err, ok := <-spa.closed:
+		if ok {
 			return err
 		}
 		return ErrSinkAlreadyClosed
 	case spa.closeReq <- struct{}{}:
-		<-spa.closed
-		aCloseErr := spa.aprod.Close()
-		if spa.closeErr != nil {
-			return spa.closeErr
+		// Check if channel is still open in case Close
+		// is called concurrently more than onces
+		err, ok := <-spa.closed
+		if ok {
+			return err
 		}
-		return aCloseErr
+		return ErrSinkAlreadyClosed
 	}
 }
 
