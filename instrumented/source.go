@@ -47,7 +47,11 @@ func (ams *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 	for {
 		select {
 		case ack := <-acks:
-			toBeAcked <- ack
+			select {
+			case toBeAcked <- ack:
+			case <-ctx.Done():
+				return <-errs
+			}
 			ams.counter.WithLabelValues("success", ams.topic).Inc()
 		case <-ctx.Done():
 			return <-errs
