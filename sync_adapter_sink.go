@@ -50,17 +50,19 @@ func (spa *synchronousMessageSinkAdapter) loop() {
 	toSend := make(chan Message)
 	acks := make(chan Message)
 
-	errSinkClosed := errors.New("sink closed")
-	eg, ctx := errgroup.WithContext(context.Background())
+	// This context with cancel is used when a goroutine
+	// terminates cleanly to shut down the other one as well
+	ctx, cancel := context.WithCancel(context.Background())
+	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		if err := spa.aprod.PublishMessages(ctx, acks, toSend); err != nil {
-			return err
-		}
-		return errSinkClosed // return error to shutdown the main loop
+		defer cancel()
+		return spa.aprod.PublishMessages(ctx, acks, toSend)
 	})
 
 	eg.Go(func() error {
+		defer cancel()
+
 		var needAcks []*produceReq
 		defer func() {
 			// Send error to all waiting publish requests before shutting down
@@ -83,8 +85,7 @@ func (spa *synchronousMessageSinkAdapter) loop() {
 					return nil
 				case toSend <- pr.m:
 				case <-spa.closeReq:
-					// Need to return error to stop the publisher
-					return errSinkClosed
+					return nil
 				}
 			case ack := <-acks:
 				if needAcks[0].m != ack {
@@ -93,14 +94,13 @@ func (spa *synchronousMessageSinkAdapter) loop() {
 				close(needAcks[0].done)
 				needAcks = needAcks[1:]
 			case <-spa.closeReq:
-				// Need to return error to stop the publisher
-				return errSinkClosed
+				return nil
 			}
 		}
 	})
 
 	// Wait for sink and loop to terminate and send close error tp closed channel
-	if sinkErr := eg.Wait(); sinkErr == nil || sinkErr == errSinkClosed {
+	if sinkErr := eg.Wait(); sinkErr == nil || sinkErr == context.Canceled {
 		spa.closed <- spa.aprod.Close()
 	} else {
 		if err := spa.aprod.Close(); err != nil {
