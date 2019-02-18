@@ -49,7 +49,7 @@ func (ts *testServer) NewConsumer(topic string, groupID string) substrate.AsyncM
 
 func (ts *testServer) NewProducer(topic string) substrate.AsyncMessageSink {
 	s, err := NewAsyncMessageSink(AsyncMessageSinkConfig{
-		Broker:   fmt.Sprintf("localhost:%d", ks.port),
+		Broker:   fmt.Sprintf("localhost:%d", ts.port),
 		Topic:    topic,
 		Insecure: true,
 	})
