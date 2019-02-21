@@ -35,12 +35,20 @@ type asyncMessageSink struct {
 func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
 	var toAck []substrate.Message
 	t := time.NewTimer(0)
-	t.Stop()
+	if !t.Stop() {
+		<-t.C
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case m := <-messages:
+			if !t.Stop() {
+				select {
+				case <-t.C:
+				default:
+				}
+			}
 			t.Reset(1000 * time.Millisecond)
 			if err := ams.fms.PutMessage(m.Data()); err != nil {
 				return err
