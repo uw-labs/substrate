@@ -12,12 +12,12 @@ import (
 )
 
 func init() {
-	suburl.RegisterSink("freezer+dir", newKafkaSink)
-	suburl.RegisterSource("freezer+dir", newKafkaSource)
-	suburl.RegisterSource("freezer+s3", newKafkaSource)
+	suburl.RegisterSink("freezer+dir", newFreezerSink)
+	suburl.RegisterSource("freezer+dir", newFreezerSource)
+	suburl.RegisterSource("freezer+s3", newFreezerSource)
 }
 
-func newKafkaSink(u *url.URL) (substrate.AsyncMessageSink, error) {
+func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 
 	q := u.Query()
 
@@ -48,7 +48,7 @@ func newKafkaSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 
 var sinker = NewAsyncMessageSink
 
-func newKafkaSource(u *url.URL) (substrate.AsyncMessageSource, error) {
+func newFreezerSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 	q := u.Query()
 
 	cts := q.Get("compression")
