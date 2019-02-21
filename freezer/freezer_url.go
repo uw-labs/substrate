@@ -14,6 +14,7 @@ import (
 func init() {
 	suburl.RegisterSink("freezer+dir", newFreezerSink)
 	suburl.RegisterSource("freezer+dir", newFreezerSource)
+	suburl.RegisterSink("freezer+s3", newFreezerSink)
 	suburl.RegisterSource("freezer+s3", newFreezerSource)
 }
 
@@ -31,19 +32,35 @@ func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 		return nil, fmt.Errorf("unknown compression type : %s", cts)
 	}
 
+	var streamstore straw.StreamStore
 	switch u.Scheme {
 	case "freezer+dir":
-		conf := AsyncMessageSinkConfig{
-			streamstore: &straw.OsStreamStore{},
-			fconfig: freezer.MessageSinkConfig{
-				Path:            u.Path,
-				CompressionType: ct,
-			},
+		streamstore = &straw.OsStreamStore{}
+	case "freezer+s3":
+		var enc straw.S3Option
+		if q.Get("sse") == "aes256" {
+			enc = straw.S3ServerSideEncoding(straw.ServerSideEncryptionTypeAES256)
 		}
-		return sinker(conf)
+		var err error
+		if enc != nil {
+			streamstore, err = straw.NewS3StreamStore(u.Hostname(), enc)
+		} else {
+			streamstore, err = straw.NewS3StreamStore(u.Hostname())
+		}
+		if err != nil {
+			return nil, err
+		}
 	default:
 		return nil, fmt.Errorf("unsupported scheme : %s", u.Scheme)
 	}
+	conf := AsyncMessageSinkConfig{
+		streamstore: streamstore,
+		fconfig: freezer.MessageSinkConfig{
+			Path:            u.Path,
+			CompressionType: ct,
+		},
+	}
+	return sinker(conf)
 }
 
 var sinker = NewAsyncMessageSink
