@@ -22,7 +22,7 @@ func natsStatus(nc *nats.Conn) (*substrate.Status, error) {
 	}
 
 	return &substrate.Status{
-		Problems: []string{fmt.Sprintf("nats not connected - last error: %v", lastErr)},
+		Problems: []string{fmt.Sprintf("nats not connected - last error: %v", nc.LastError())},
 		Working:  false,
 	}, nil
 }
