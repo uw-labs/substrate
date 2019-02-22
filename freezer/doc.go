@@ -11,6 +11,9 @@
 // The url structure is freezer+s3://bucket/
 //                   or freezer+dir://full/path/
 //
+// On the sink there's an additional url parameter that allows one to specify the server side encryption flag for s3.
+// It currently only supports aes256.
+// It then looks like this: freezer+s3://bucket/path?sse=aes256
 //
 // The following url parameters are available:
 //
