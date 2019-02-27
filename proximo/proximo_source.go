@@ -5,11 +5,12 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
-	proximoc "github.com/uw-labs/proximo/proximoc-go"
+	"github.com/uw-labs/proximo/proximoc-go"
+	"github.com/uw-labs/rungroup"
 	"github.com/uw-labs/substrate"
 )
 
@@ -82,7 +83,7 @@ func (cm *consMsg) getMsgID() string {
 
 func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
 
-	eg, ctx := errgroup.WithContext(ctx)
+	eg, ctx := rungroup.New(ctx)
 	client := proximoc.NewMessageSourceClient(ams.conn)
 
 	stream, err := client.Consume(ctx)
@@ -117,7 +118,7 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 				default:
 					id := toAckList[0].getMsgID()
 					if err := stream.Send(&proximoc.ConsumerRequest{Confirmation: &proximoc.Confirmation{MsgID: id}}); err != nil {
-						if err == io.EOF || grpc.Code(err) == codes.Canceled {
+						if err == io.EOF || status.Code(err) == codes.Canceled {
 							return nil
 						}
 						return err
@@ -125,7 +126,7 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 					toAckList = toAckList[1:]
 				}
 			case <-ctx.Done():
-				return ctx.Err()
+				return nil
 			}
 		}
 	})
@@ -134,31 +135,27 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 		for {
 			in, err := stream.Recv()
 			if err != nil {
-				if err != io.EOF && grpc.Code(err) != codes.Canceled {
-					return err
+				if err == io.EOF || status.Code(err) == codes.Canceled {
+					return nil
 				}
-				return nil
+				return err
 			}
 
 			m := &consMsg{pm: in}
 			select {
 			case toAck <- m:
 			case <-ctx.Done():
-				return ctx.Err()
+				return nil
 			}
 			select {
 			case messages <- m:
 			case <-ctx.Done():
-				return ctx.Err()
+				return nil
 			}
 		}
 	})
 
-	err = eg.Wait()
-	if err == context.Canceled {
-		return nil
-	}
-	return err
+	return eg.Wait()
 
 }
 

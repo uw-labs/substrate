@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -13,14 +12,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/uw-labs/proximo/proximoc-go"
+	"github.com/uw-labs/rungroup"
 	"github.com/uw-labs/substrate"
 )
 
-var (
-	_ substrate.AsyncMessageSink = (*asyncMessageSink)(nil)
-
-	errStreamClosed = errors.New("stream was closed")
-)
+var _ substrate.AsyncMessageSink = (*asyncMessageSink)(nil)
 
 type AsyncMessageSinkConfig struct {
 	Broker   string
@@ -48,7 +44,7 @@ type asyncMessageSink struct {
 
 func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
 
-	eg, ctx := errgroup.WithContext(ctx)
+	eg, ctx := rungroup.New(ctx)
 
 	client := proximoc.NewMessageSinkClient(ams.conn)
 	stream, err := client.Publish(ctx)
@@ -78,10 +74,7 @@ func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 		return ams.passAcksToUser(ctx, acks, toAck, proximoAcks)
 	})
 
-	if err = eg.Wait(); err != nil && err != errStreamClosed {
-		return err
-	}
-	return nil
+	return eg.Wait()
 }
 
 type msgSendStream interface {
@@ -105,7 +98,7 @@ func (ams *asyncMessageSink) sendMessagesToProximo(ctx context.Context, stream m
 			}
 			if err := stream.Send(&proximoc.PublisherRequest{Msg: pMsg}); err != nil {
 				if err == io.EOF || status.Code(err) == codes.Canceled {
-					return errStreamClosed
+					return nil
 				}
 				return errors.Wrap(err, "failed to send message to proximo")
 			}
@@ -122,7 +115,7 @@ func (ams *asyncMessageSink) receiveAcksFromProximo(ctx context.Context, stream 
 		conf, err := stream.Recv()
 		if err != nil {
 			if err == io.EOF || status.Code(err) == codes.Canceled {
-				return errStreamClosed
+				return nil
 			}
 			return errors.Wrap(err, "failed to receive acknowledgement")
 		}
