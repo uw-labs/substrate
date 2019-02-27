@@ -44,7 +44,7 @@ type asyncMessageSink struct {
 
 func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
 
-	eg, ctx := rungroup.New(ctx)
+	rg, ctx := rungroup.New(ctx)
 
 	client := proximoc.NewMessageSinkClient(ams.conn)
 	stream, err := client.Publish(ctx)
@@ -64,17 +64,17 @@ func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 	toAck := make(chan *ackMessage)
 	proximoAcks := make(chan string)
 
-	eg.Go(func() error {
+	rg.Go(func() error {
 		return ams.sendMessagesToProximo(ctx, stream, messages, toAck)
 	})
-	eg.Go(func() error {
+	rg.Go(func() error {
 		return ams.receiveAcksFromProximo(ctx, stream, proximoAcks)
 	})
-	eg.Go(func() error {
+	rg.Go(func() error {
 		return ams.passAcksToUser(ctx, acks, toAck, proximoAcks)
 	})
 
-	return eg.Wait()
+	return rg.Wait()
 }
 
 type msgSendStream interface {

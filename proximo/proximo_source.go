@@ -83,7 +83,7 @@ func (cm *consMsg) getMsgID() string {
 
 func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
 
-	eg, ctx := rungroup.New(ctx)
+	rg, ctx := rungroup.New(ctx)
 	client := proximoc.NewMessageSourceClient(ams.conn)
 
 	stream, err := client.Consume(ctx)
@@ -103,7 +103,7 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 
 	toAck := make(chan *consMsg)
 
-	eg.Go(func() error {
+	rg.Go(func() error {
 		var toAckList []*consMsg
 		for {
 			select {
@@ -131,7 +131,7 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 		}
 	})
 
-	eg.Go(func() error {
+	rg.Go(func() error {
 		for {
 			in, err := stream.Recv()
 			if err != nil {
@@ -155,7 +155,7 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 		}
 	})
 
-	return eg.Wait()
+	return rg.Wait()
 
 }
 
