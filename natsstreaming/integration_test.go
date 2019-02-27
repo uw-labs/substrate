@@ -10,9 +10,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Shopify/toxiproxy"
 	"github.com/google/uuid"
+	stan "github.com/nats-io/go-nats-streaming"
+	stand "github.com/nats-io/nats-streaming-server/server"
+	"github.com/stretchr/testify/require"
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/internal/testshared"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestAll(t *testing.T) {
@@ -39,8 +44,10 @@ func (ks *testServer) NewConsumer(topic string, groupID string) substrate.AsyncM
 		URL:       "http://localhost:4222",
 		ClusterID: ks.clusterID,
 
-		QueueGroup: groupID,
-		Subject:    topic,
+		QueueGroup:             groupID,
+		Subject:                topic,
+		ConnectionNumPings:     3,
+		ConnectionPingInterval: 1,
 	})
 	if err != nil {
 		panic(err)
@@ -170,4 +177,75 @@ func (ks *testServer) canConsume(topic string, groupID string) error {
 		return err
 	}
 	return source.Close()
+}
+
+func TestConsumerErrorOnBackendDisconnect(t *testing.T) {
+
+	// seed nats with some test data
+	stanServerOpts := stand.GetDefaultOptions()
+	natsServerOpts := stand.DefaultNatsServerOptions
+	natsServerOpts.Port = 10247 // sorry!
+	natsServ, err := stand.RunServerWithOpts(stanServerOpts, &natsServerOpts)
+	require.NoError(t, err)
+	defer natsServ.Shutdown()
+	conn, err := stan.Connect(stand.DefaultClusterID, "test-publish", stan.NatsURL(fmt.Sprintf("nats://localhost:%d", natsServerOpts.Port)))
+	require.NoError(t, err)
+	for i := 0; i < 1000; i++ {
+		err := conn.Publish("test", []byte(strconv.Itoa(i)))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// set up backend handler with a proxy in the connection
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	proxy := toxiproxy.NewProxy()
+	proxy.Listen = "localhost:10248"
+	proxy.Upstream = fmt.Sprintf("localhost:%d", natsServerOpts.Port)
+	err = proxy.Start()
+	asyncSource, err := NewAsyncMessageSource(AsyncMessageSourceConfig{
+		AckWait:                time.Second * 30,
+		ClientID:               "test",
+		ClusterID:              stand.DefaultClusterID,
+		MaxInFlight:            1,
+		Offset:                 OffsetOldest,
+		QueueGroup:             "test",
+		Subject:                "test",
+		URL:                    fmt.Sprintf("nats://%s", proxy.Listen),
+		ConnectionNumPings:     3,
+		ConnectionPingInterval: 1,
+	})
+	require.NoError(t, err)
+	success := make(chan struct{})
+	egrp, groupCtx := errgroup.WithContext(ctx)
+	messageChan := make(chan substrate.Message)
+	ackChan := make(chan substrate.Message)
+	egrp.Go(func() error {
+		for msg := range messageChan {
+			val, _ := strconv.Atoi(string(msg.Data()))
+			if val == 10 {
+				t.Log("close proxy after 10 msgs")
+				proxy.Stop() // close proxy after 10 msgs
+			}
+			ackChan <- msg
+		}
+		return nil
+	})
+	egrp.Go(func() error {
+		err := asyncSource.ConsumeMessages(groupCtx, messageChan, ackChan)
+		if err != nil && err != context.Canceled {
+			t.Log(err)
+			close(success) // our handler returned the error from the ping timeout
+		}
+		return err
+	})
+	select {
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	case <-success:
+	}
 }

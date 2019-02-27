@@ -4,11 +4,12 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/nats-io/go-nats-streaming"
+	stan "github.com/nats-io/go-nats-streaming"
 	"github.com/uw-labs/substrate"
 )
 
@@ -152,11 +153,18 @@ type AsyncMessageSourceConfig struct {
 	MaxInFlight int
 	AckWait     time.Duration
 	Offset      int64
+
+	// number in seconds between pings (min 1)
+	ConnectionPingInterval int
+
+	// the client will return an error after this many pings have timed out (min 3)
+	ConnectionNumPings int
 }
 
 type asyncMessageSource struct {
-	conn stan.Conn
-	conf AsyncMessageSourceConfig
+	conn         stan.Conn
+	conf         AsyncMessageSourceConfig
+	disconnected <-chan error
 }
 
 func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
@@ -171,11 +179,25 @@ func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSo
 		return nil, fmt.Errorf("invalid offset: '%v'", c.Offset)
 	}
 
-	conn, err := stan.Connect(c.ClusterID, clientID, stan.NatsURL(c.URL))
+	if c.ConnectionPingInterval < 1 {
+		c.ConnectionPingInterval = 1
+	}
+
+	if c.ConnectionNumPings < 3 {
+		c.ConnectionNumPings = 3
+	}
+
+	disconnected := make(chan error, 1)
+	conn, err := stan.Connect(c.ClusterID, clientID, stan.NatsURL(c.URL),
+		stan.Pings(c.ConnectionPingInterval, c.ConnectionNumPings),
+		stan.SetConnectionLostHandler(func(_ stan.Conn, e error) {
+			disconnected <- e
+			close(disconnected)
+		}))
 	if err != nil {
 		return nil, err
 	}
-	return &asyncMessageSource{conn, c}, nil
+	return &asyncMessageSource{conn: conn, conf: c, disconnected: disconnected}, nil
 }
 
 type consumerMessage struct {
@@ -232,7 +254,7 @@ func (c *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<
 		return err
 	}
 
-	err = handleAcks(ctx, msgsToAck, acks)
+	err = handleAcks(ctx, msgsToAck, acks, c.disconnected)
 
 	se := sub.Close()
 	if err == nil {
@@ -250,7 +272,7 @@ func (ams *asyncMessageSource) Status() (*substrate.Status, error) {
 	return natsStatus(ams.conn.NatsConn())
 }
 
-func handleAcks(ctx context.Context, msgsToAck chan *consumerMessage, acks <-chan substrate.Message) error {
+func handleAcks(ctx context.Context, msgsToAck chan *consumerMessage, acks <-chan substrate.Message, disconnected <-chan error) error {
 	var toAck []*consumerMessage
 
 	for {
@@ -273,6 +295,11 @@ func handleAcks(ctx context.Context, msgsToAck chan *consumerMessage, acks <-cha
 		case <-ctx.Done():
 			//return ctx.Err()
 			return nil
+		case e, ok := <-disconnected:
+			if ok {
+				return e
+			}
+			return errors.New("nats connection no longer active, exiting ack loop")
 		}
 	}
 }
