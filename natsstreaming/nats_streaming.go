@@ -179,6 +179,14 @@ func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSo
 		return nil, fmt.Errorf("invalid offset: '%v'", c.Offset)
 	}
 
+	if c.ConnectionPingInterval < 1 {
+		c.ConnectionPingInterval = 1
+	}
+
+	if c.ConnectionNumPings < 3 {
+		c.ConnectionNumPings = 3
+	}
+
 	disconnected := make(chan error, 1)
 	conn, err := stan.Connect(c.ClusterID, clientID, stan.NatsURL(c.URL),
 		stan.Pings(c.ConnectionPingInterval, c.ConnectionNumPings),
