@@ -42,8 +42,8 @@ func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 		if sse == "aes256" {
 			enc = straw.S3ServerSideEncoding(straw.ServerSideEncryptionTypeAES256)
 		}
-		if sse != "" {
-			return nil, fmt.Errorf("unsupported value: %s passed for sse parameter", sse)
+		if sse != "" && sse != "aes256" {
+			return nil, fmt.Error("unsupported value: %s passed for sse parameter", sse)
 		}
 		var err error
 		if enc != nil {
