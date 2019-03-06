@@ -65,6 +65,8 @@ func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 	proximoAcks := make(chan string)
 
 	rg.Go(func() error {
+		defer stream.CloseSend()
+
 		return ams.sendMessagesToProximo(ctx, stream, messages, toAck)
 	})
 	rg.Go(func() error {

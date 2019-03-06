@@ -90,7 +90,6 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 	if err != nil {
 		return errors.Wrap(err, "fail to consume")
 	}
-	defer stream.CloseSend()
 
 	if err := stream.Send(&proximoc.ConsumerRequest{
 		StartRequest: &proximoc.StartConsumeRequest{
@@ -104,6 +103,8 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 	toAck := make(chan *consMsg)
 
 	rg.Go(func() error {
+		defer stream.CloseSend()
+
 		var toAckList []*consMsg
 		for {
 			select {
