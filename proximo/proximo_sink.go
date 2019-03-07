@@ -12,8 +12,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/uw-labs/proximo/proximoc-go"
-	"github.com/uw-labs/rungroup"
 	"github.com/uw-labs/substrate"
+	"github.com/uw-labs/sync/rungroup"
 )
 
 var _ substrate.AsyncMessageSink = (*asyncMessageSink)(nil)

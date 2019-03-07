@@ -10,8 +10,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/uw-labs/proximo/proximoc-go"
-	"github.com/uw-labs/rungroup"
 	"github.com/uw-labs/substrate"
+	"github.com/uw-labs/sync/rungroup"
 )
 
 const (
