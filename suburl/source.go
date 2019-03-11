@@ -2,9 +2,11 @@ package suburl
 
 import (
 	"fmt"
-	"github.com/uw-labs/substrate"
 	"net/url"
+	"os"
 	"sync"
+
+	"github.com/uw-labs/substrate"
 )
 
 var (
@@ -26,7 +28,7 @@ func RegisterSource(scheme string, sinkFunc func(url *url.URL) (substrate.AsyncM
 
 // NewSource returns a message source based on the supplied URL.
 func NewSource(u string) (substrate.AsyncMessageSource, error) {
-	parsed, err := url.Parse(u)
+	parsed, err := url.Parse(os.ExpandEnv(u))
 	if err != nil {
 		return nil, err
 	}

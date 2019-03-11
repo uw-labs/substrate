@@ -2,9 +2,11 @@ package suburl
 
 import (
 	"fmt"
-	"github.com/uw-labs/substrate"
 	"net/url"
+	"os"
 	"sync"
+
+	"github.com/uw-labs/substrate"
 )
 
 var (
@@ -29,7 +31,7 @@ func RegisterSink(scheme string, sinkFunc func(url *url.URL) (substrate.AsyncMes
 //  kafka://localhost:123/my-topic/?metadata-refresh=2s&broker=localhost:234&broker=localhost:345
 //  nats-streaming://localhost:123/my-subject?cluster-id=cid-1&consumer-id=cons-1
 func NewSink(u string) (substrate.AsyncMessageSink, error) {
-	parsed, err := url.Parse(u)
+	parsed, err := url.Parse(os.ExpandEnv(u))
 	if err != nil {
 		return nil, err
 	}
