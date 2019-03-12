@@ -31,8 +31,8 @@ type AsyncMessageSourceConfig struct {
 	ConsumerGroup string
 	Topic         string
 	Broker        string
-	//	Offset        int64 TODO: offset for proximo
-	Insecure bool
+	Offset        int64
+	Insecure      bool
 }
 
 func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
@@ -53,6 +53,7 @@ type asyncMessageSource struct {
 	conn          *grpc.ClientConn
 	consumerGroup string
 	topic         string
+	offset        int64
 }
 
 type consMsg struct {
@@ -91,10 +92,17 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 		return errors.Wrap(err, "fail to consume")
 	}
 
+	var offset proximoc.Offset
+	if ams.offset == OffsetOldest {
+		offset = proximoc.Offset_OFFSET_OLDEST
+	} else {
+		offset = proximoc.Offset_OFFSET_NEWEST
+	}
 	if err := stream.Send(&proximoc.ConsumerRequest{
 		StartRequest: &proximoc.StartConsumeRequest{
-			Topic:    ams.topic,
-			Consumer: ams.consumerGroup,
+			Topic:         ams.topic,
+			Consumer:      ams.consumerGroup,
+			InitialOffset: offset,
 		},
 	}); err != nil {
 		return err
