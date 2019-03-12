@@ -73,7 +73,7 @@ func newProximoSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 		conf.Offset = OffsetOldest
 	case "":
 	default:
-		return nil, fmt.Errorf("ignoring unknown offset value '%s'", q.Get("offset"))
+		return nil, fmt.Errorf("unknown offset value '%s'", q.Get("offset"))
 	}
 
 	return proximoSourcer(conf)
