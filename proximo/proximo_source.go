@@ -14,11 +14,14 @@ import (
 	"github.com/uw-labs/sync/rungroup"
 )
 
+// Offset is the type used to specify the initial subscription offset
+type Offset int64
+
 const (
 	// OffsetOldest indicates the oldest appropriate message available on the broker.
-	OffsetOldest int64 = 1
+	OffsetOldest Offset = 1
 	// OffsetNewest indicates the next appropriate message available on the broker.
-	OffsetNewest int64 = 2
+	OffsetNewest Offset = 2
 )
 
 var (
@@ -31,7 +34,7 @@ type AsyncMessageSourceConfig struct {
 	ConsumerGroup string
 	Topic         string
 	Broker        string
-	Offset        int64
+	Offset        Offset
 	Insecure      bool
 }
 
@@ -53,7 +56,7 @@ type asyncMessageSource struct {
 	conn          *grpc.ClientConn
 	consumerGroup string
 	topic         string
-	offset        int64
+	offset        Offset
 }
 
 type consMsg struct {
