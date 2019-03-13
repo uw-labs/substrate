@@ -14,11 +14,14 @@ import (
 	"github.com/uw-labs/sync/rungroup"
 )
 
+// Offset is the type used to specify the initial subscription offset
+type Offset int64
+
 const (
 	// OffsetOldest indicates the oldest appropriate message available on the broker.
-	OffsetOldest int64 = 1
+	OffsetOldest Offset = 1
 	// OffsetNewest indicates the next appropriate message available on the broker.
-	OffsetNewest int64 = 2
+	OffsetNewest Offset = 2
 )
 
 var (
@@ -31,8 +34,8 @@ type AsyncMessageSourceConfig struct {
 	ConsumerGroup string
 	Topic         string
 	Broker        string
-	//	Offset        int64 TODO: offset for proximo
-	Insecure bool
+	Offset        Offset
+	Insecure      bool
 }
 
 func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
@@ -53,6 +56,7 @@ type asyncMessageSource struct {
 	conn          *grpc.ClientConn
 	consumerGroup string
 	topic         string
+	offset        Offset
 }
 
 type consMsg struct {
@@ -91,10 +95,17 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 		return errors.Wrap(err, "fail to consume")
 	}
 
+	var offset proximoc.Offset
+	if ams.offset == OffsetOldest {
+		offset = proximoc.Offset_OFFSET_OLDEST
+	} else {
+		offset = proximoc.Offset_OFFSET_NEWEST
+	}
 	if err := stream.Send(&proximoc.ConsumerRequest{
 		StartRequest: &proximoc.StartConsumeRequest{
-			Topic:    ams.topic,
-			Consumer: ams.consumerGroup,
+			Topic:         ams.topic,
+			Consumer:      ams.consumerGroup,
+			InitialOffset: offset,
 		},
 	}); err != nil {
 		return err

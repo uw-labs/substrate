@@ -109,8 +109,8 @@ func TestProximoSource(t *testing.T) {
 			expected: AsyncMessageSourceConfig{
 				Broker:        "localhost:123",
 				ConsumerGroup: "g1",
-				//Offset:   foo,
-				Topic: "t1",
+				Offset:        OffsetNewest,
+				Topic:         "t1",
 			},
 			expectedErr: nil,
 		},
