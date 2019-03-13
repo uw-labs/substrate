@@ -37,15 +37,19 @@ func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 	case "freezer+dir":
 		streamstore = &straw.OsStreamStore{}
 	case "freezer+s3":
-		var enc straw.S3Option
+		var (
+			enc straw.S3Option
+			err error
+		)
+
 		sse := q.Get("sse")
-		if sse == "aes256" {
+		switch sse {
+		case "aes256":
 			enc = straw.S3ServerSideEncoding(straw.ServerSideEncryptionTypeAES256)
-		}
-		if sse != "" {
+		default:
 			return nil, fmt.Errorf("unsupported value: %s passed for sse parameter", sse)
 		}
-		var err error
+
 		if enc != nil {
 			streamstore, err = straw.NewS3StreamStore(u.Hostname(), enc)
 		} else {
