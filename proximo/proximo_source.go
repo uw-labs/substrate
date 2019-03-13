@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/uw-labs/proximo/proximoc-go"
+	"github.com/uw-labs/proximo/proto"
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/sync/rungroup"
 )
@@ -62,7 +62,7 @@ type asyncMessageSource struct {
 
 type consMsg struct {
 	id string
-	pm *proximoc.Message
+	pm *proto.Message
 }
 
 func (cm *consMsg) Data() []byte {
@@ -89,21 +89,21 @@ func (cm *consMsg) getMsgID() string {
 func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
 
 	rg, ctx := rungroup.New(ctx)
-	client := proximoc.NewMessageSourceClient(ams.conn)
+	client := proto.NewMessageSourceClient(ams.conn)
 
 	stream, err := client.Consume(ctx)
 	if err != nil {
 		return errors.Wrap(err, "fail to consume")
 	}
 
-	var offset proximoc.Offset
+	var offset proto.Offset
 	if ams.offset == OffsetOldest {
-		offset = proximoc.Offset_OFFSET_OLDEST
+		offset = proto.Offset_OFFSET_OLDEST
 	} else {
-		offset = proximoc.Offset_OFFSET_NEWEST
+		offset = proto.Offset_OFFSET_NEWEST
 	}
-	if err := stream.Send(&proximoc.ConsumerRequest{
-		StartRequest: &proximoc.StartConsumeRequest{
+	if err := stream.Send(&proto.ConsumerRequest{
+		StartRequest: &proto.StartConsumeRequest{
 			Topic:         ams.topic,
 			Consumer:      ams.consumerGroup,
 			InitialOffset: offset,
@@ -130,7 +130,7 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 					return substrate.InvalidAckError{Acked: a, Expected: toAckList[0]}
 				default:
 					id := toAckList[0].getMsgID()
-					if err := stream.Send(&proximoc.ConsumerRequest{Confirmation: &proximoc.Confirmation{MsgID: id}}); err != nil {
+					if err := stream.Send(&proto.ConsumerRequest{Confirmation: &proto.Confirmation{MsgID: id}}); err != nil {
 						if err == io.EOF || status.Code(err) == codes.Canceled {
 							return nil
 						}
