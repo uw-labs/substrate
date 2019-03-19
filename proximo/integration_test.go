@@ -37,8 +37,8 @@ func (ts *testServer) NewConsumer(topic string, groupID string) substrate.AsyncM
 		Broker:        fmt.Sprintf("localhost:%d", ts.port),
 		ConsumerGroup: groupID,
 		Topic:         topic,
-		//	Offset:        OffsetOldest,
-		Insecure: true,
+		Offset:        OffsetOldest,
+		Insecure:      true,
 	})
 
 	if err != nil {

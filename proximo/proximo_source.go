@@ -49,6 +49,7 @@ func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSo
 		conn:          conn,
 		consumerGroup: c.ConsumerGroup,
 		topic:         c.Topic,
+		offset:        c.Offset,
 	}, nil
 }
 
