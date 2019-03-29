@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
+	"github.com/uw-labs/sync/rungroup"
 )
 
 var (
@@ -50,19 +50,13 @@ func (spa *synchronousMessageSinkAdapter) loop() {
 	toSend := make(chan Message)
 	acks := make(chan Message)
 
-	// This context with cancel is used when a goroutine
-	// terminates cleanly to shut down the other one as well
-	ctx, cancel := context.WithCancel(context.Background())
-	eg, ctx := errgroup.WithContext(ctx)
+	rg, ctx := rungroup.New(context.Background())
 
-	eg.Go(func() error {
-		defer cancel()
+	rg.Go(func() error {
 		return spa.aprod.PublishMessages(ctx, acks, toSend)
 	})
 
-	eg.Go(func() error {
-		defer cancel()
-
+	rg.Go(func() error {
 		var needAcks []*produceReq
 		defer func() {
 			// Send error to all waiting publish requests before shutting down
@@ -100,7 +94,7 @@ func (spa *synchronousMessageSinkAdapter) loop() {
 	})
 
 	// Wait for sink and loop to terminate and send close error tp closed channel
-	if sinkErr := eg.Wait(); sinkErr == nil || sinkErr == context.Canceled {
+	if sinkErr := rg.Wait(); sinkErr == nil || sinkErr == context.Canceled {
 		spa.closed <- spa.aprod.Close()
 	} else {
 		if err := spa.aprod.Close(); err != nil {

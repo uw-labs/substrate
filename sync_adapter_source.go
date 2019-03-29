@@ -3,7 +3,7 @@ package substrate
 import (
 	"context"
 
-	"golang.org/x/sync/errgroup"
+	"github.com/uw-labs/sync/rungroup"
 )
 
 // NewSynchronousMessageSource returns a new synchronous message source, given
@@ -21,16 +21,16 @@ type synchronousMessageSourceAdapter struct {
 
 func (a *synchronousMessageSourceAdapter) ConsumeMessages(ctx context.Context, handler ConsumerMessageHandler) error {
 
-	eg, ctx := errgroup.WithContext(ctx)
+	rg, ctx := rungroup.New(ctx)
 
 	messages := make(chan Message)
 	acks := make(chan Message)
 
-	eg.Go(func() error {
+	rg.Go(func() error {
 		return a.ac.ConsumeMessages(ctx, messages, acks)
 	})
 
-	eg.Go(func() error {
+	rg.Go(func() error {
 		for {
 			select {
 			case msg := <-messages:
@@ -48,7 +48,7 @@ func (a *synchronousMessageSourceAdapter) ConsumeMessages(ctx context.Context, h
 		}
 	})
 
-	return eg.Wait()
+	return rg.Wait()
 }
 
 func (a *synchronousMessageSourceAdapter) Close() error {
