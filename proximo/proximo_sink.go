@@ -11,7 +11,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/pkg/errors"
 
-	"github.com/uw-labs/proximo/proximoc-go"
+	"github.com/uw-labs/proximo/proto"
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/sync/rungroup"
 )
@@ -46,14 +46,14 @@ func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 
 	rg, ctx := rungroup.New(ctx)
 
-	client := proximoc.NewMessageSinkClient(ams.conn)
+	client := proto.NewMessageSinkClient(ams.conn)
 	stream, err := client.Publish(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to start publishing")
 	}
 
-	err = stream.Send(&proximoc.PublisherRequest{
-		StartRequest: &proximoc.StartPublishRequest{
+	err = stream.Send(&proto.PublisherRequest{
+		StartRequest: &proto.StartPublishRequest{
 			Topic: ams.topic,
 		},
 	})
@@ -80,7 +80,7 @@ func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 }
 
 type msgSendStream interface {
-	Send(*proximoc.PublisherRequest) error
+	Send(*proto.PublisherRequest) error
 }
 
 func (ams *asyncMessageSink) sendMessagesToProximo(ctx context.Context, stream msgSendStream, messages <-chan substrate.Message, toAck chan<- *ackMessage) error {
@@ -89,7 +89,7 @@ func (ams *asyncMessageSink) sendMessagesToProximo(ctx context.Context, stream m
 		case <-ctx.Done():
 			return nil
 		case msg := <-messages:
-			pMsg := &proximoc.Message{
+			pMsg := &proto.Message{
 				Id:   uuid.Must(uuid.NewV4()).String(),
 				Data: msg.Data(),
 			}
@@ -98,7 +98,7 @@ func (ams *asyncMessageSink) sendMessagesToProximo(ctx context.Context, stream m
 				return nil
 			case toAck <- &ackMessage{id: pMsg.Id, msg: msg}:
 			}
-			if err := stream.Send(&proximoc.PublisherRequest{Msg: pMsg}); err != nil {
+			if err := stream.Send(&proto.PublisherRequest{Msg: pMsg}); err != nil {
 				if err == io.EOF || status.Code(err) == codes.Canceled {
 					return nil
 				}
@@ -109,7 +109,7 @@ func (ams *asyncMessageSink) sendMessagesToProximo(ctx context.Context, stream m
 }
 
 type ackReceiverStream interface {
-	Recv() (*proximoc.Confirmation, error)
+	Recv() (*proto.Confirmation, error)
 }
 
 func (ams *asyncMessageSink) receiveAcksFromProximo(ctx context.Context, stream ackReceiverStream, proximoAcks chan<- string) error {
