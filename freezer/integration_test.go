@@ -43,8 +43,8 @@ func runServer() (*testServer, error) {
 func (ks *testServer) NewConsumer(topic string, groupID string) substrate.AsyncMessageSource {
 
 	s, err := NewAsyncMessageSource(AsyncMessageSourceConfig{
-		streamstore: ks.ss,
-		fconfig: freezer.MessageSourceConfig{
+		StreamStore: ks.ss,
+		FreezerConfig: freezer.MessageSourceConfig{
 			Path: ks.dir,
 		},
 	})
@@ -56,8 +56,8 @@ func (ks *testServer) NewConsumer(topic string, groupID string) substrate.AsyncM
 
 func (ks *testServer) NewProducer(topic string) substrate.AsyncMessageSink {
 	s, err := NewAsyncMessageSink(AsyncMessageSinkConfig{
-		streamstore: ks.ss,
-		fconfig: freezer.MessageSinkConfig{
+		StreamStore: ks.ss,
+		FreezerConfig: freezer.MessageSinkConfig{
 			Path: ks.dir,
 		},
 	})

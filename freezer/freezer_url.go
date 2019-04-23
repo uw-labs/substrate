@@ -62,8 +62,8 @@ func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 		return nil, fmt.Errorf("unsupported scheme : %s", u.Scheme)
 	}
 	conf := AsyncMessageSinkConfig{
-		streamstore: streamstore,
-		fconfig: freezer.MessageSinkConfig{
+		StreamStore: streamstore,
+		FreezerConfig: freezer.MessageSinkConfig{
 			Path:            u.Path,
 			CompressionType: ct,
 		},
@@ -89,8 +89,8 @@ func newFreezerSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 	switch u.Scheme {
 	case "freezer+dir":
 		conf := AsyncMessageSourceConfig{
-			streamstore: &straw.OsStreamStore{},
-			fconfig: freezer.MessageSourceConfig{
+			StreamStore: &straw.OsStreamStore{},
+			FreezerConfig: freezer.MessageSourceConfig{
 				Path:            u.Path,
 				PollPeriod:      10 * time.Second,
 				CompressionType: ct,
@@ -103,8 +103,8 @@ func newFreezerSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 			return nil, err
 		}
 		conf := AsyncMessageSourceConfig{
-			streamstore: ss,
-			fconfig: freezer.MessageSourceConfig{
+			StreamStore: ss,
+			FreezerConfig: freezer.MessageSourceConfig{
 				Path:            u.Path,
 				PollPeriod:      10 * time.Second,
 				CompressionType: ct,

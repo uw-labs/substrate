@@ -16,12 +16,12 @@ var (
 )
 
 type AsyncMessageSinkConfig struct {
-	streamstore straw.StreamStore
-	fconfig     freezer.MessageSinkConfig
+	StreamStore   straw.StreamStore
+	FreezerConfig freezer.MessageSinkConfig
 }
 
 func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
-	fms, err := freezer.NewMessageSink(config.streamstore, config.fconfig)
+	fms, err := freezer.NewMessageSink(config.StreamStore, config.FreezerConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -96,12 +96,12 @@ func (ams *asyncMessageSink) Close() error {
 
 // AsyncMessageSourceConfig is the configuration options for creating a new AsyncMessageSource
 type AsyncMessageSourceConfig struct {
-	streamstore straw.StreamStore
-	fconfig     freezer.MessageSourceConfig
+	StreamStore   straw.StreamStore
+	FreezerConfig freezer.MessageSourceConfig
 }
 
 func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
-	fms := freezer.NewMessageSource(c.streamstore, c.fconfig)
+	fms := freezer.NewMessageSource(c.StreamStore, c.FreezerConfig)
 	ams := &asyncMessageSource{fms}
 	return ams, nil
 }
