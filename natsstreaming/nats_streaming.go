@@ -25,6 +25,15 @@ const (
 	OffsetNewest int64 = -1
 )
 
+// ConnectionTimeOutConfig encapsulates interval and timeout seconds fields
+// used for configuring nats streaming connection loss detection
+type ConnectionTimeOutConfig struct {
+	// Number of seconds to wait for a response from nats streaming
+	Seconds int
+	// Number of attempts to establish a connection
+	Tries int
+}
+
 // AsyncMessageSinkConfig is the configuration parameters for an
 // AsyncMessageSink.
 type AsyncMessageSinkConfig struct {
@@ -32,17 +41,24 @@ type AsyncMessageSinkConfig struct {
 	ClusterID string
 	ClientID  string
 	Subject   string
+	TimeOut   ConnectionTimeOutConfig
 }
 
 func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
-	sink := asyncMessageSink{subject: config.Subject}
+	sink := asyncMessageSink{subject: config.Subject, connectionLost: make(chan error, 1)}
 
 	clientID := config.ClientID
 	if clientID == "" {
 		clientID = generateID()
 	}
 
-	sc, err := stan.Connect(config.ClusterID, clientID, stan.NatsURL(config.URL))
+	sc, err := stan.Connect(
+		config.ClusterID, clientID, stan.NatsURL(config.URL),
+		stan.Pings(config.TimeOut.Seconds, config.TimeOut.Tries),
+		stan.SetConnectionLostHandler(func(_ stan.Conn, e error) {
+			sink.connectionLost <- e
+		}),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +67,9 @@ func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageS
 }
 
 type asyncMessageSink struct {
-	subject string
-	sc      stan.Conn // nats streaming
+	subject        string
+	sc             stan.Conn // nats streaming
+	connectionLost chan error
 }
 
 func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
@@ -66,6 +83,12 @@ func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- subs
 	}()
 
 	conn := p.sc
+
+	go func() {
+		e := <-p.connectionLost
+		cancel()
+		rerr = e
+	}()
 
 	natsAcks := make(chan string)
 	natsAckErrs := make(chan error, 1)
