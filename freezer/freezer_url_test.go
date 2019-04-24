@@ -24,11 +24,11 @@ func TestFreezerSink(t *testing.T) {
 			name:  "simple-dir",
 			input: "freezer+dir:///foo/1",
 			expected: AsyncMessageSinkConfig{
-				fconfig: freezer.MessageSinkConfig{
+				FreezerConfig: freezer.MessageSinkConfig{
 					CompressionType: freezer.CompressionTypeNone,
 					Path:            "/foo/1",
 				},
-				streamstore: &straw.OsStreamStore{},
+				StreamStore: &straw.OsStreamStore{},
 			},
 			expectedErr: nil,
 		},
@@ -36,11 +36,11 @@ func TestFreezerSink(t *testing.T) {
 			name:  "everything-dir",
 			input: "freezer+dir:///foo/bar2/baz/?compression=snappy",
 			expected: AsyncMessageSinkConfig{
-				fconfig: freezer.MessageSinkConfig{
+				FreezerConfig: freezer.MessageSinkConfig{
 					CompressionType: freezer.CompressionTypeSnappy,
 					Path:            "/foo/bar2/baz/",
 				},
-				streamstore: &straw.OsStreamStore{},
+				StreamStore: &straw.OsStreamStore{},
 			},
 			expectedErr: nil,
 		},
@@ -79,12 +79,12 @@ func TestFreezerSource(t *testing.T) {
 			name:  "simple-dir",
 			input: "freezer+dir:///foo/baz1/",
 			expected: AsyncMessageSourceConfig{
-				fconfig: freezer.MessageSourceConfig{
+				FreezerConfig: freezer.MessageSourceConfig{
 					CompressionType: freezer.CompressionTypeNone,
 					Path:            "/foo/baz1/",
 					PollPeriod:      10 * time.Second,
 				},
-				streamstore: &straw.OsStreamStore{},
+				StreamStore: &straw.OsStreamStore{},
 			},
 			expectedErr: nil,
 		},
@@ -92,12 +92,12 @@ func TestFreezerSource(t *testing.T) {
 			name:  "everything-dir",
 			input: "freezer+dir:///foo/baz3/?compression=snappy",
 			expected: AsyncMessageSourceConfig{
-				fconfig: freezer.MessageSourceConfig{
+				FreezerConfig: freezer.MessageSourceConfig{
 					CompressionType: freezer.CompressionTypeSnappy,
 					Path:            "/foo/baz3/",
 					PollPeriod:      10 * time.Second,
 				},
-				streamstore: &straw.OsStreamStore{},
+				StreamStore: &straw.OsStreamStore{},
 			},
 			expectedErr: nil,
 		},
