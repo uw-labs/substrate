@@ -131,8 +131,7 @@ func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- subs
 	for {
 		select {
 		case <-ctx.Done():
-			//return ctx.Err()
-			return nil
+			return
 		case msg := <-messages:
 			guid, err := conn.PublishAsync(p.subject, msg.Data(), func(guid string, err error) {
 				if err != nil {
