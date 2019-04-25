@@ -22,6 +22,15 @@ func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 
 	q := u.Query()
 
+	var flushInterval time.Duration
+	if fi := q.Get("flush-interval"); fi != "" {
+		dur, err := time.ParseDuration(fi)
+		if err != nil {
+			return nil, err
+		}
+		flushInterval = dur
+	}
+
 	cts := q.Get("compression")
 	ct := freezer.CompressionTypeNone
 	switch cts {
@@ -44,6 +53,7 @@ func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 
 		sse := q.Get("sse")
 		switch sse {
+		case "":
 		case "aes256":
 			enc = straw.S3ServerSideEncoding(straw.ServerSideEncryptionTypeAES256)
 		default:
@@ -62,7 +72,8 @@ func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 		return nil, fmt.Errorf("unsupported scheme : %s", u.Scheme)
 	}
 	conf := AsyncMessageSinkConfig{
-		StreamStore: streamstore,
+		FlushInterval: flushInterval,
+		StreamStore:   streamstore,
 		FreezerConfig: freezer.MessageSinkConfig{
 			Path:            u.Path,
 			CompressionType: ct,

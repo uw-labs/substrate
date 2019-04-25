@@ -16,6 +16,7 @@ var (
 )
 
 type AsyncMessageSinkConfig struct {
+	FlushInterval time.Duration
 	StreamStore   straw.StreamStore
 	FreezerConfig freezer.MessageSinkConfig
 }
@@ -25,11 +26,20 @@ func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageS
 	if err != nil {
 		return nil, err
 	}
-	return &asyncMessageSink{fms}, nil
+
+	flushInterval := config.FlushInterval
+	if flushInterval == 0 {
+		flushInterval = time.Second
+	}
+	return &asyncMessageSink{
+		flushInterval: flushInterval,
+		fms:           fms,
+	}, nil
 }
 
 type asyncMessageSink struct {
-	fms *freezer.MessageSink
+	flushInterval time.Duration
+	fms           *freezer.MessageSink
 }
 
 func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
@@ -49,7 +59,7 @@ func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 				default:
 				}
 			}
-			t.Reset(1000 * time.Millisecond)
+			t.Reset(ams.flushInterval)
 			if err := ams.fms.PutMessage(m.Data()); err != nil {
 				return err
 			}

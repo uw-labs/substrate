@@ -34,8 +34,9 @@ func TestFreezerSink(t *testing.T) {
 		},
 		{
 			name:  "everything-dir",
-			input: "freezer+dir:///foo/bar2/baz/?compression=snappy",
+			input: "freezer+dir:///foo/bar2/baz/?compression=snappy&flush-interval=5s",
 			expected: AsyncMessageSinkConfig{
+				FlushInterval: time.Second * 5,
 				FreezerConfig: freezer.MessageSinkConfig{
 					CompressionType: freezer.CompressionTypeSnappy,
 					Path:            "/foo/bar2/baz/",
