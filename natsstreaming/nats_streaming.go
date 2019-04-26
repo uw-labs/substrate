@@ -51,10 +51,24 @@ func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageS
 	if clientID == "" {
 		clientID = generateID()
 	}
+	var (
+		timeOutSeconds int
+		timeOutTries   int
+	)
+	if config.TimeOut.Seconds < 1 {
+		timeOutSeconds = 1
+	} else {
+		timeOutSeconds = config.TimeOut.Seconds
+	}
+	if config.TimeOut.Tries < 3 {
+		timeOutTries = 3
+	} else {
+		timeOutTries = config.TimeOut.Tries
+	}
 
 	sc, err := stan.Connect(
 		config.ClusterID, clientID, stan.NatsURL(config.URL),
-		stan.Pings(config.TimeOut.Seconds, config.TimeOut.Tries),
+		stan.Pings(timeOutSeconds, timeOutTries),
 		stan.SetConnectionLostHandler(func(_ stan.Conn, e error) {
 			sink.connectionLost <- e
 		}),
@@ -85,9 +99,11 @@ func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- subs
 	conn := p.sc
 
 	go func() {
-		e := <-p.connectionLost
-		cancel()
-		rerr = e
+		select {
+		case rerr = <-p.connectionLost:
+			cancel()
+		case <-ctx.Done():
+		}
 	}()
 
 	natsAcks := make(chan string)
