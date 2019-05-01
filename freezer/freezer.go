@@ -66,6 +66,9 @@ func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 			}
 			toAck = append(toAck, m)
 		case <-t.C:
+			if len(toAck) == 0 {
+				continue
+			}
 			if err := ams.fms.Flush(); err != nil {
 				return err
 			}
