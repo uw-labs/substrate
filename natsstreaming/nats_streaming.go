@@ -24,13 +24,9 @@ const (
 	OffsetNewest int64 = -1
 )
 
-// ConnectionTimeOutConfig encapsulates interval and timeout seconds fields
-// used for configuring nats streaming connection loss detection
-type ConnectionTimeOutConfig struct {
-	// Number of seconds to wait for a response from nats streaming
-	Seconds int
-	// Number of attempts to establish a connection
-	Tries int
+type connectionTimeOutConfig struct {
+	seconds int
+	tries   int
 }
 
 // AsyncMessageSinkConfig is the configuration parameters for an
@@ -40,7 +36,12 @@ type AsyncMessageSinkConfig struct {
 	ClusterID string
 	ClientID  string
 	Subject   string
-	TimeOut   ConnectionTimeOutConfig
+
+	// number in seconds between pings (min 1)
+	ConnectionPingInterval int
+
+	// the client will return an error after this many pings have timed out (min 3)
+	ConnectionNumPings int
 }
 
 func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
@@ -50,24 +51,17 @@ func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageS
 	if clientID == "" {
 		clientID = generateID()
 	}
-	var (
-		timeOutSeconds int
-		timeOutTries   int
-	)
-	if config.TimeOut.Seconds < 1 {
-		timeOutSeconds = 1
-	} else {
-		timeOutSeconds = config.TimeOut.Seconds
+	if config.ConnectionPingInterval < 1 {
+		config.ConnectionPingInterval = 1
 	}
-	if config.TimeOut.Tries < 3 {
-		timeOutTries = 3
-	} else {
-		timeOutTries = config.TimeOut.Tries
+
+	if config.ConnectionNumPings < 3 {
+		config.ConnectionNumPings = 3
 	}
 
 	sc, err := stan.Connect(
 		config.ClusterID, clientID, stan.NatsURL(config.URL),
-		stan.Pings(timeOutSeconds, timeOutTries),
+		stan.Pings(config.ConnectionPingInterval, config.ConnectionNumPings),
 		stan.SetConnectionLostHandler(func(_ stan.Conn, e error) {
 			sink.connectionLost <- e
 		}),

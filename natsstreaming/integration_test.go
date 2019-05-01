@@ -271,14 +271,12 @@ func TestProducerOnDisconnectedError(t *testing.T) {
 	proxy.Upstream = fmt.Sprintf("localhost:%d", natsServerOpts.Port)
 	err = proxy.Start()
 	sink, err := NewAsyncMessageSink(AsyncMessageSinkConfig{
-		URL:       fmt.Sprintf("nats://%s", proxy.Listen),
-		ClusterID: stand.DefaultClusterID,
-		ClientID:  "test-client",
-		Subject:   "test-subject",
-		TimeOut: ConnectionTimeOutConfig{
-			Seconds: 1,
-			Tries:   3,
-		},
+		URL:                    fmt.Sprintf("nats://%s", proxy.Listen),
+		ClusterID:              stand.DefaultClusterID,
+		ClientID:               "test-client",
+		Subject:                "test-subject",
+		ConnectionPingInterval: 1,
+		ConnectionNumPings:     3,
 	})
 	//hnd, err := newNatsStreamingProduceHandler(
 	//fmt.Sprintf("nats://%s", proxy.Listen), stand.DefaultClusterID, 1, 1, 3)

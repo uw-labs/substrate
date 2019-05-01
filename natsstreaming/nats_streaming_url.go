@@ -26,12 +26,15 @@ func newNatsStreamingSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 		return nil, fmt.Errorf("error parsing subject from url (%s)", subject)
 	}
 
+	to := getTimeoutConfig(q)
+
 	return natsStreamingSinker(AsyncMessageSinkConfig{
-		URL:       natsURL,
-		ClusterID: q.Get("cluster-id"),
-		ClientID:  q.Get("client-id"),
-		Subject:   subject,
-		TimeOut:   getTimeoutConfig(q),
+		URL:                    natsURL,
+		ClusterID:              q.Get("cluster-id"),
+		ClientID:               q.Get("client-id"),
+		Subject:                subject,
+		ConnectionPingInterval: to.seconds,
+		ConnectionNumPings:     to.tries,
 	})
 }
 
@@ -55,8 +58,8 @@ func newNatsStreamingSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 		QueueGroup:             q.Get("queue-group"),
 		ClientID:               q.Get("client-id"),
 		Subject:                subject,
-		ConnectionPingInterval: toConf.Seconds,
-		ConnectionNumPings:     toConf.Tries,
+		ConnectionPingInterval: toConf.seconds,
+		ConnectionNumPings:     toConf.tries,
 	}
 
 	switch offset := q.Get("offset"); offset {
@@ -90,7 +93,7 @@ func newNatsStreamingSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 	return natsStreamingSourcer(conf)
 }
 
-func getTimeoutConfig(q url.Values) ConnectionTimeOutConfig {
+func getTimeoutConfig(q url.Values) connectionTimeOutConfig {
 	seconds, err := strconv.Atoi(q.Get("ping-timeout"))
 	if err != nil {
 		seconds = 1
@@ -99,9 +102,9 @@ func getTimeoutConfig(q url.Values) ConnectionTimeOutConfig {
 	if err != nil {
 		tries = 3
 	}
-	return ConnectionTimeOutConfig{
-		Seconds: seconds,
-		Tries:   tries,
+	return connectionTimeOutConfig{
+		seconds: seconds,
+		tries:   tries,
 	}
 }
 
