@@ -3,8 +3,10 @@ package freezer
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/uw-labs/freezer"
 	"github.com/uw-labs/straw"
 	"github.com/uw-labs/substrate"
@@ -18,9 +20,26 @@ func init() {
 	suburl.RegisterSource("freezer+s3", newFreezerSource)
 }
 
-func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
+func newFreezerSink(u *url.URL) (sink substrate.AsyncMessageSink, err error) {
 
 	q := u.Query()
+
+	var (
+		maxUnflushedCount  = defaultMaxUnflushedCount
+		maxUnflushedPeriod = defaultMaxUnflushedPeriod
+	)
+	if count := q.Get("max-unflushed-count"); count != "" {
+		maxUnflushedCount, err = strconv.Atoi(count)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse max-unflushed-count")
+		}
+	}
+	if period := q.Get("max-unflushed-period"); period != "" {
+		maxUnflushedPeriod, err = time.ParseDuration(period)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse max-unflushed-period")
+		}
+	}
 
 	cts := q.Get("compression")
 	ct := freezer.CompressionTypeNone
@@ -44,6 +63,7 @@ func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 
 		sse := q.Get("sse")
 		switch sse {
+		case "":
 		case "aes256":
 			enc = straw.S3ServerSideEncoding(straw.ServerSideEncryptionTypeAES256)
 		default:
@@ -67,6 +87,8 @@ func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 			Path:            u.Path,
 			CompressionType: ct,
 		},
+		MaxUnflushedCount:  maxUnflushedCount,
+		MaxUnflushedPeriod: maxUnflushedPeriod,
 	}
 	return sinker(conf)
 }
