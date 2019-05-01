@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	stan "github.com/nats-io/go-nats-streaming"
@@ -57,80 +56,46 @@ type asyncMessageSink struct {
 
 func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
 
-	var wg sync.WaitGroup
-
 	ctx, cancel := context.WithCancel(ctx)
-	defer func() {
-		cancel()
-		wg.Wait()
-	}()
+	defer cancel()
 
 	conn := p.sc
 
-	natsAcks := make(chan string)
 	natsAckErrs := make(chan error, 1)
+	publishErr := make(chan error, 1)
 
-	type toAckType struct {
-		guid    string
-		message substrate.Message
-	}
-
-	toAck := make(chan toAckType)
-	ackErrs := make(chan error, 1)
-
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		ackMap := make(map[string]substrate.Message)
+	LOOP:
 		for {
 			select {
-			case natsGUID := <-natsAcks:
-				msg := ackMap[natsGUID]
-				if msg == nil {
-					ackErrs <- fmt.Errorf("got ack from nats streaming for unknown guid %v", natsGUID)
-					return
-				}
-				delete(ackMap, natsGUID)
-				select {
-				case acks <- msg:
-				case <-ctx.Done():
-					//return ctx.Err()
-					return
-				}
-			case ta := <-toAck:
-				ackMap[ta.guid] = ta.message
 			case <-ctx.Done():
-				return
+				//return ctx.Err()
+				break LOOP
+			case msg := <-messages:
+				_, err := conn.PublishAsync(p.subject, msg.Data(), func(guid string, err error) {
+					if err != nil {
+						select {
+						case natsAckErrs <- err:
+						default:
+						}
+						return
+					}
+					acks <- msg
+				})
+				if err != nil {
+					publishErr <- err
+					break LOOP
+				}
 			}
 		}
 	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			//return ctx.Err()
-			return nil
-		case msg := <-messages:
-			guid, err := conn.PublishAsync(p.subject, msg.Data(), func(guid string, err error) {
-				if err != nil {
-					select {
-					case natsAckErrs <- err:
-					default:
-					}
-					return
-				}
-				natsAcks <- guid
-			})
-			if err != nil {
-				return err
-			}
-			toAck <- toAckType{guid, msg}
-
-		case ne := <-natsAckErrs:
-			return ne
-		case ae := <-ackErrs:
-			return ae
-		}
+	select {
+	case <-ctx.Done():
+		return
+	case ne := <-natsAckErrs:
+		return ne
+	case pe := <-publishErr:
+		return pe
 	}
 }
 
