@@ -110,7 +110,6 @@ func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- subs
 			case <-ctx.Done():
 				//return ctx.Err()
 				break LOOP
-			return nil
 			case msg := <-messages:
 				_, err := conn.PublishAsync(p.subject, msg.Data(), func(guid string, err error) {
 					if err != nil {
