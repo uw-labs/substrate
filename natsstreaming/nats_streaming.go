@@ -86,14 +86,6 @@ func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- subs
 
 	conn := p.sc
 
-	go func() {
-		select {
-		case rerr = <-p.connectionLost:
-			cancel()
-		case <-ctx.Done():
-		}
-	}()
-
 	natsAckErrs := make(chan error, 1)
 	publishErr := make(chan error, 1)
 
@@ -129,6 +121,8 @@ func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- subs
 		return ne
 	case pe := <-publishErr:
 		return pe
+	case cle := <-p.connectionLost:
+		return cle
 	}
 }
 
