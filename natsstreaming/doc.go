@@ -15,6 +15,11 @@
 //      cluster-id  - The nats streaming cluster id
 //      client-id   - The nats streaming client id
 //
+// The following connection loss detection parameters are available on both source and sink:
+//
+//      ping-timeout - The number of seconds to wait for a ping
+//      ping-num-tries - The number of times pings should time out before the connection is considered dead
+//
 // Additionally, for sources, the following url parameters are available
 //
 //      queue-group      - The nats streaming queue group

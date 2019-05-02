@@ -24,6 +24,11 @@ const (
 	OffsetNewest int64 = -1
 )
 
+type connectionTimeOutConfig struct {
+	seconds int
+	tries   int
+}
+
 // AsyncMessageSinkConfig is the configuration parameters for an
 // AsyncMessageSink.
 type AsyncMessageSinkConfig struct {
@@ -31,17 +36,36 @@ type AsyncMessageSinkConfig struct {
 	ClusterID string
 	ClientID  string
 	Subject   string
+
+	// number in seconds between pings (min 1)
+	ConnectionPingInterval int
+
+	// the client will return an error after this many pings have timed out (min 3)
+	ConnectionNumPings int
 }
 
 func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
-	sink := asyncMessageSink{subject: config.Subject}
+	sink := asyncMessageSink{subject: config.Subject, connectionLost: make(chan error, 1)}
 
 	clientID := config.ClientID
 	if clientID == "" {
 		clientID = generateID()
 	}
+	if config.ConnectionPingInterval < 1 {
+		config.ConnectionPingInterval = 1
+	}
 
-	sc, err := stan.Connect(config.ClusterID, clientID, stan.NatsURL(config.URL))
+	if config.ConnectionNumPings < 3 {
+		config.ConnectionNumPings = 3
+	}
+
+	sc, err := stan.Connect(
+		config.ClusterID, clientID, stan.NatsURL(config.URL),
+		stan.Pings(config.ConnectionPingInterval, config.ConnectionNumPings),
+		stan.SetConnectionLostHandler(func(_ stan.Conn, e error) {
+			sink.connectionLost <- e
+		}),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -50,8 +74,9 @@ func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageS
 }
 
 type asyncMessageSink struct {
-	subject string
-	sc      stan.Conn // nats streaming
+	subject        string
+	sc             stan.Conn // nats streaming
+	connectionLost chan error
 }
 
 func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
@@ -96,6 +121,8 @@ func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- subs
 		return ne
 	case pe := <-publishErr:
 		return pe
+	case cle := <-p.connectionLost:
+		return cle
 	}
 }
 

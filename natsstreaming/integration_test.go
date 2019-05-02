@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	stan "github.com/nats-io/go-nats-streaming"
 	stand "github.com/nats-io/nats-streaming-server/server"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/internal/testshared"
@@ -242,6 +244,56 @@ func TestConsumerErrorOnBackendDisconnect(t *testing.T) {
 			close(success) // our handler returned the error from the ping timeout
 		}
 		return err
+	})
+	select {
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	case <-success:
+	}
+}
+
+func TestProducerOnDisconnectedError(t *testing.T) {
+	logrus.SetOutput(ioutil.Discard)
+
+	// seed nats with some test data
+	stanServerOpts := stand.GetDefaultOptions()
+	natsServerOpts := stand.DefaultNatsServerOptions
+	natsServerOpts.Port = 10257 // sorry!
+	natsServ, err := stand.RunServerWithOpts(stanServerOpts, &natsServerOpts)
+	require.NoError(t, err)
+	defer natsServ.Shutdown()
+
+	// set up backend handler with a proxy in the connection
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	proxy := toxiproxy.NewProxy()
+	proxy.Listen = "localhost:10258"
+	proxy.Upstream = fmt.Sprintf("localhost:%d", natsServerOpts.Port)
+	err = proxy.Start()
+	sink, err := NewAsyncMessageSink(AsyncMessageSinkConfig{
+		URL:                    fmt.Sprintf("nats://%s", proxy.Listen),
+		ClusterID:              stand.DefaultClusterID,
+		ClientID:               "test-client",
+		Subject:                "test-subject",
+		ConnectionPingInterval: 1,
+		ConnectionNumPings:     3,
+	})
+	//hnd, err := newNatsStreamingProduceHandler(
+	//fmt.Sprintf("nats://%s", proxy.Listen), stand.DefaultClusterID, 1, 1, 3)
+	require.NoError(t, err)
+	success := make(chan struct{})
+	egrp, groupCtx := errgroup.WithContext(ctx)
+	acks := make(chan substrate.Message)
+	messages := make(chan substrate.Message)
+	egrp.Go(func() error {
+		err := sink.PublishMessages(groupCtx, acks, messages)
+		if err != nil && err != context.Canceled {
+			close(success)
+		}
+		return err
+	})
+	time.AfterFunc(time.Second*1, func() {
+		proxy.Stop()
 	})
 	select {
 	case <-ctx.Done():

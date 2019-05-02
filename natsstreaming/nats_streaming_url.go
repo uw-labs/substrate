@@ -26,11 +26,15 @@ func newNatsStreamingSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 		return nil, fmt.Errorf("error parsing subject from url (%s)", subject)
 	}
 
+	to := getTimeoutConfig(q)
+
 	return natsStreamingSinker(AsyncMessageSinkConfig{
-		URL:       natsURL,
-		ClusterID: q.Get("cluster-id"),
-		ClientID:  q.Get("client-id"),
-		Subject:   subject,
+		URL:                    natsURL,
+		ClusterID:              q.Get("cluster-id"),
+		ClientID:               q.Get("client-id"),
+		Subject:                subject,
+		ConnectionPingInterval: to.seconds,
+		ConnectionNumPings:     to.tries,
 	})
 }
 
@@ -46,12 +50,16 @@ func newNatsStreamingSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 		return nil, fmt.Errorf("error parsing topic from url (%s)", subject)
 	}
 
+	toConf := getTimeoutConfig(q)
+
 	conf := AsyncMessageSourceConfig{
-		URL:        natsURL,
-		ClusterID:  q.Get("cluster-id"),
-		QueueGroup: q.Get("queue-group"),
-		ClientID:   q.Get("client-id"),
-		Subject:    subject,
+		URL:                    natsURL,
+		ClusterID:              q.Get("cluster-id"),
+		QueueGroup:             q.Get("queue-group"),
+		ClientID:               q.Get("client-id"),
+		Subject:                subject,
+		ConnectionPingInterval: toConf.seconds,
+		ConnectionNumPings:     toConf.tries,
 	}
 
 	switch offset := q.Get("offset"); offset {
@@ -83,6 +91,21 @@ func newNatsStreamingSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 	}
 
 	return natsStreamingSourcer(conf)
+}
+
+func getTimeoutConfig(q url.Values) connectionTimeOutConfig {
+	seconds, err := strconv.Atoi(q.Get("ping-timeout"))
+	if err != nil {
+		seconds = 1
+	}
+	tries, err := strconv.Atoi(q.Get("ping-num-tries"))
+	if err != nil {
+		tries = 3
+	}
+	return connectionTimeOutConfig{
+		seconds: seconds,
+		tries:   tries,
+	}
 }
 
 var natsStreamingSourcer = NewAsyncMessageSource
