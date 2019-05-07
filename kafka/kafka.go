@@ -25,19 +25,21 @@ const (
 	defaultMetadataRefreshFrequency = 10 * time.Minute
 )
 
-type Version *sarama.KafkaVersion
-
 type AsyncMessageSinkConfig struct {
 	Brokers         []string
 	Topic           string
 	MaxMessageBytes int
 	KeyFunc         func(substrate.Message) []byte
-	Version         Version
+	Version         string
 }
 
 func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
 
-	conf := config.buildSaramaProducerConfig()
+	conf, err := config.buildSaramaProducerConfig()
+	if err != nil {
+		return nil, err
+	}
+
 	client, err := sarama.NewClient(config.Brokers, conf)
 	if err != nil {
 		return nil, err
@@ -110,7 +112,7 @@ func (ams *asyncMessageSink) Status() (*substrate.Status, error) {
 	return status(ams.client, ams.Topic)
 }
 
-func (ams *AsyncMessageSinkConfig) buildSaramaProducerConfig() *sarama.Config {
+func (ams *AsyncMessageSinkConfig) buildSaramaProducerConfig() (*sarama.Config, error) {
 	conf := sarama.NewConfig()
 	conf.Producer.RequiredAcks = sarama.WaitForAll // make configurable
 	conf.Producer.Return.Successes = true
@@ -131,10 +133,15 @@ func (ams *AsyncMessageSinkConfig) buildSaramaProducerConfig() *sarama.Config {
 		conf.Producer.Partitioner = sarama.NewRoundRobinPartitioner
 	}
 
-	if ams.Version != nil {
-		conf.Version = *ams.Version
+	if ams.Version != "" {
+		version, err := sarama.ParseKafkaVersion(ams.Version)
+		if err != nil {
+			return nil, err
+		}
+		conf.Version = version
 	}
-	return conf
+
+	return conf, nil
 }
 
 // Close implements the Close method of the substrate.AsyncMessageSink
@@ -152,10 +159,10 @@ type AsyncMessageSourceConfig struct {
 	Offset                   int64
 	MetadataRefreshFrequency time.Duration
 	OffsetsRetention         time.Duration
-	Version                  Version
+	Version                  string
 }
 
-func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() *cluster.Config {
+func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*cluster.Config, error) {
 	offset := OffsetNewest
 	if ams.Offset != 0 {
 		offset = ams.Offset
@@ -171,14 +178,22 @@ func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() *cluster.Config
 	config.Metadata.RefreshFrequency = mrf
 	config.Consumer.Offsets.Retention = ams.OffsetsRetention
 
-	if ams.Version != nil {
-		config.Version = *ams.Version
+	if ams.Version != "" {
+		version, err := sarama.ParseKafkaVersion(ams.Version)
+		if err != nil {
+			return nil, err
+		}
+		config.Version = version
 	}
-	return config
+
+	return config, nil
 }
 
 func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
-	config := c.buildSaramaConsumerConfig()
+	config, err := c.buildSaramaConsumerConfig()
+	if err != nil {
+		return nil, err
+	}
 
 	client, err := cluster.NewClient(c.Brokers, config)
 	if err != nil {
@@ -319,12 +334,4 @@ func (ams *asyncMessageSource) Status() (*substrate.Status, error) {
 
 func (ams *asyncMessageSource) Close() error {
 	return ams.client.Close()
-}
-
-func ParseVersion(v string) (Version, error) {
-	version, err := sarama.ParseKafkaVersion(v)
-	if err != nil {
-		return nil, err
-	}
-	return &version, nil
 }
