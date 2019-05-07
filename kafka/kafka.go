@@ -25,12 +25,14 @@ const (
 	defaultMetadataRefreshFrequency = 10 * time.Minute
 )
 
+type Version *sarama.KafkaVersion
+
 type AsyncMessageSinkConfig struct {
 	Brokers         []string
 	Topic           string
 	MaxMessageBytes int
 	KeyFunc         func(substrate.Message) []byte
-	Version         *sarama.KafkaVersion
+	Version         Version
 }
 
 func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
@@ -317,4 +319,12 @@ func (ams *asyncMessageSource) Status() (*substrate.Status, error) {
 
 func (ams *asyncMessageSource) Close() error {
 	return ams.client.Close()
+}
+
+func ParseVersion(v string) (Version, error) {
+	version, err := sarama.ParseKafkaVersion(v)
+	if err != nil {
+		return nil, err
+	}
+	return &version, nil
 }
