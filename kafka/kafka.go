@@ -7,7 +7,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/Shopify/sarama"
-	"github.com/bsm/sarama-cluster"
+	cluster "github.com/bsm/sarama-cluster"
 	"github.com/uw-labs/substrate"
 )
 
@@ -152,7 +152,7 @@ type AsyncMessageSourceConfig struct {
 	Offset                   int64
 	MetadataRefreshFrequency time.Duration
 	OffsetsRetention         time.Duration
-	Version                  *sarama.KafkaVersion
+	Version                  Version
 }
 
 func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() *cluster.Config {
