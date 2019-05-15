@@ -9,7 +9,7 @@ jobs:
       - restore_cache:
           keys:
             - v1-pkg-cache
-      - run: go get -v -t ./...
+      - run: go get -u -v -t ./...
       - save_cache:
           key: v1-pkg-cache
           paths:
