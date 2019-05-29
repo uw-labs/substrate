@@ -1,9 +1,12 @@
 package proximo
 
 import (
+	"crypto/tls"
+
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials"
 
 	"github.com/uw-labs/substrate"
 )
@@ -12,6 +15,8 @@ func dialProximo(broker string, insecure bool) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 	if insecure {
 		opts = append(opts, grpc.WithInsecure())
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(new(tls.Config))))
 	}
 	opts = append(opts, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1024*1024*64)))
 
