@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/suburl"
@@ -26,6 +27,29 @@ func newProximoSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 	conf := AsyncMessageSinkConfig{
 		Broker: u.Host,
 		Topic:  topic,
+	}
+
+	if q.Get("keep-alive-time") != "" {
+
+		t, err := time.ParseDuration(q.Get("keep-alive-time"))
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse keep-alive-time: %s", q.Get("keep-alive-time"))
+		}
+
+		ka := &KeepAlive{
+			Time:    t,
+			Timeout: time.Second * 10,
+		}
+
+		if q.Get("keep-alive-timeout") != "" {
+			to, err := time.ParseDuration(q.Get("keep-alive-timeout"))
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse keep-alive-timeout: %s", q.Get("keep-alive-timeout"))
+			}
+			ka.Timeout = to
+		}
+
+		conf.KeepAlive = ka
 	}
 
 	switch q.Get("insecure") {
@@ -55,6 +79,29 @@ func newProximoSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 		Broker:        u.Host,
 		ConsumerGroup: q.Get("consumer-group"),
 		Topic:         topic,
+	}
+
+	if q.Get("keep-alive-time") != "" {
+
+		t, err := time.ParseDuration(q.Get("keep-alive-time"))
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse keep-alive-time: %s", q.Get("keep-alive-time"))
+		}
+
+		ka := &KeepAlive{
+			Time:    t,
+			Timeout: time.Second * 10,
+		}
+
+		if q.Get("keep-alive-timeout") != "" {
+			to, err := time.ParseDuration(q.Get("keep-alive-timeout"))
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse keep-alive-timeout: %s", q.Get("keep-alive-timeout"))
+			}
+			ka.Timeout = to
+		}
+
+		conf.KeepAlive = ka
 	}
 
 	switch q.Get("insecure") {
