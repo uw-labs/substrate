@@ -2,6 +2,7 @@ package proximo
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/uw-labs/substrate"
@@ -34,6 +35,30 @@ func TestProximoSink(t *testing.T) {
 				Topic:  "t1",
 			},
 			expectedErr: nil,
+		},
+		{
+			name:  "with-keep-alive",
+			input: "proximo://localhost:123/t1?keep-alive-time=60m",
+			expected: AsyncMessageSinkConfig{
+				Broker: "localhost:123",
+				Topic:  "t1",
+				KeepAlive: &KeepAlive{
+					Time:    time.Minute * 60,
+					Timeout: time.Second * 10,
+				},
+			},
+		},
+		{
+			name:  "with-keep-alive-timeout",
+			input: "proximo://localhost:123/t1?keep-alive-time=60m&keep-alive-timeout=70s",
+			expected: AsyncMessageSinkConfig{
+				Broker: "localhost:123",
+				Topic:  "t1",
+				KeepAlive: &KeepAlive{
+					Time:    time.Minute * 60,
+					Timeout: time.Second * 70,
+				},
+			},
 		},
 		{
 			name:  "insecure",
@@ -102,6 +127,30 @@ func TestProximoSource(t *testing.T) {
 				Insecure: true,
 			},
 			expectedErr: nil,
+		},
+		{
+			name:  "with-keep-alive",
+			input: "proximo://localhost:123/t1?keep-alive-time=60m",
+			expected: AsyncMessageSourceConfig{
+				Broker: "localhost:123",
+				Topic:  "t1",
+				KeepAlive: &KeepAlive{
+					Time:    time.Minute * 60,
+					Timeout: time.Second * 10,
+				},
+			},
+		},
+		{
+			name:  "with-keep-alive-timeout",
+			input: "proximo://localhost:123/t1?keep-alive-time=60m&keep-alive-timeout=70s",
+			expected: AsyncMessageSourceConfig{
+				Broker: "localhost:123",
+				Topic:  "t1",
+				KeepAlive: &KeepAlive{
+					Time:    time.Minute * 60,
+					Timeout: time.Second * 70,
+				},
+			},
 		},
 		{
 			name:  "everything",

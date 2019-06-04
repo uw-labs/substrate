@@ -29,28 +29,11 @@ func newProximoSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 		Topic:  topic,
 	}
 
-	if q.Get("keep-alive-time") != "" {
-
-		t, err := time.ParseDuration(q.Get("keep-alive-time"))
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse keep-alive-time: %s", q.Get("keep-alive-time"))
-		}
-
-		ka := &KeepAlive{
-			Time:    t,
-			Timeout: time.Second * 10,
-		}
-
-		if q.Get("keep-alive-timeout") != "" {
-			to, err := time.ParseDuration(q.Get("keep-alive-timeout"))
-			if err != nil {
-				return nil, fmt.Errorf("unable to parse keep-alive-timeout: %s", q.Get("keep-alive-timeout"))
-			}
-			ka.Timeout = to
-		}
-
-		conf.KeepAlive = ka
+	ka, err := keepAliveFromURLValues(q)
+	if err != nil {
+		return nil, fmt.Errorf("unable to generate keep alive config: %s", err.Error())
 	}
+	conf.KeepAlive = ka
 
 	switch q.Get("insecure") {
 	case "true":
@@ -81,6 +64,36 @@ func newProximoSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 		Topic:         topic,
 	}
 
+	switch q.Get("insecure") {
+	case "true":
+		conf.Insecure = true
+	case "false":
+		conf.Insecure = false
+	default:
+		conf.Insecure = false
+	}
+
+	ka, err := keepAliveFromURLValues(q)
+	if err != nil {
+		return nil, fmt.Errorf("unable to generate keep alive config: %s", err.Error())
+	}
+	conf.KeepAlive = ka
+
+	switch q.Get("offset") {
+	case "newest":
+		conf.Offset = OffsetNewest
+	case "oldest":
+		conf.Offset = OffsetOldest
+	case "":
+	default:
+		return nil, fmt.Errorf("unknown offset value '%s'", q.Get("offset"))
+	}
+
+	return proximoSourcer(conf)
+}
+
+func keepAliveFromURLValues(q url.Values) (*KeepAlive, error) {
+
 	if q.Get("keep-alive-time") != "" {
 
 		t, err := time.ParseDuration(q.Get("keep-alive-time"))
@@ -101,29 +114,10 @@ func newProximoSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 			ka.Timeout = to
 		}
 
-		conf.KeepAlive = ka
+		return ka, nil
 	}
 
-	switch q.Get("insecure") {
-	case "true":
-		conf.Insecure = true
-	case "false":
-		conf.Insecure = false
-	default:
-		conf.Insecure = false
-	}
-
-	switch q.Get("offset") {
-	case "newest":
-		conf.Offset = OffsetNewest
-	case "oldest":
-		conf.Offset = OffsetOldest
-	case "":
-	default:
-		return nil, fmt.Errorf("unknown offset value '%s'", q.Get("offset"))
-	}
-
-	return proximoSourcer(conf)
+	return nil, nil
 }
 
 var proximoSourcer = NewAsyncMessageSource
