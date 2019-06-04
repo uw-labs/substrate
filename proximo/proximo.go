@@ -14,8 +14,11 @@ import (
 	"github.com/uw-labs/substrate"
 )
 
+// KeepAlive provides configuration for the gRPC keep alive
 type KeepAlive struct {
-	Time    time.Duration
+	// Time the interval at which a keep alive is performed
+	Time time.Duration
+	// TimeOut the duration in which a keep alive is deemed to have failed if no response is received
 	Timeout time.Duration
 }
 
