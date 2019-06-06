@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	stan "github.com/nats-io/go-nats-streaming"
+	"github.com/nats-io/stan.go"
 	"github.com/uw-labs/substrate"
 )
 

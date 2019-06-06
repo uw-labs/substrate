@@ -13,8 +13,8 @@ import (
 
 	"github.com/Shopify/toxiproxy"
 	"github.com/google/uuid"
-	stan "github.com/nats-io/go-nats-streaming"
 	stand "github.com/nats-io/nats-streaming-server/server"
+	"github.com/nats-io/stan.go"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"github.com/uw-labs/substrate"
