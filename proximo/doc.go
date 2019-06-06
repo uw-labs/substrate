@@ -12,7 +12,9 @@
 //
 // Additionally, for sources, the following url parameters are available
 //
-//      offset           - The initial offset. Valid values are `newest` and `oldest`.
-//      consumer-group   - The consumer group id
+//      offset             - The initial offset. Valid values are `newest` and `oldest`.
+//      consumer-group     - The consumer group id
+//      keep-alive-time    - The interval that a keep alive is performed at as a go duration
+//      keep-alive-timeout - The go duration at which a keepalive will timeout [Default: 10s] (requires keep-alive-time to take effect, if keep-alive-time is not present this is ignored)
 //
 package proximo

@@ -36,11 +36,12 @@ type AsyncMessageSourceConfig struct {
 	Broker        string
 	Offset        Offset
 	Insecure      bool
+	KeepAlive     *KeepAlive
 }
 
 func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
 
-	conn, err := dialProximo(c.Broker, c.Insecure)
+	conn, err := dialProximo(c.Broker, c.Insecure, c.KeepAlive)
 	if err != nil {
 		return nil, err
 	}

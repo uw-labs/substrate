@@ -19,14 +19,15 @@ import (
 var _ substrate.AsyncMessageSink = (*asyncMessageSink)(nil)
 
 type AsyncMessageSinkConfig struct {
-	Broker   string
-	Topic    string
-	Insecure bool
+	Broker    string
+	Topic     string
+	Insecure  bool
+	KeepAlive *KeepAlive
 }
 
 func NewAsyncMessageSink(c AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
 
-	conn, err := dialProximo(c.Broker, c.Insecure)
+	conn, err := dialProximo(c.Broker, c.Insecure, c.KeepAlive)
 	if err != nil {
 		return nil, err
 	}

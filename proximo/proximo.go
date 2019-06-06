@@ -2,6 +2,9 @@ package proximo
 
 import (
 	"crypto/tls"
+	"time"
+
+	"google.golang.org/grpc/keepalive"
 
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -11,8 +14,24 @@ import (
 	"github.com/uw-labs/substrate"
 )
 
-func dialProximo(broker string, insecure bool) (*grpc.ClientConn, error) {
+// KeepAlive provides configuration for the gRPC keep alive
+type KeepAlive struct {
+	// Time the interval at which a keep alive is performed
+	Time time.Duration
+	// TimeOut the duration in which a keep alive is deemed to have failed if no response is received
+	Timeout time.Duration
+}
+
+func dialProximo(broker string, insecure bool, ka *KeepAlive) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
+
+	if ka != nil {
+		opts = append(opts, grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:    ka.Time,
+			Timeout: ka.Timeout,
+		}))
+	}
+
 	if insecure {
 		opts = append(opts, grpc.WithInsecure())
 	} else {
