@@ -21,11 +21,12 @@ var (
 // is also propogated to the underlying SynchronousMessageSink
 func NewSynchronousMessageSink(ams AsyncMessageSink) SynchronousMessageSink {
 	spa := &synchronousMessageSinkAdapter{
-		ams,
+		aprod: ams,
 
-		make(chan struct{}),
-		make(chan error, 1),
-		make(chan *produceReq),
+		closeReq:  make(chan struct{}),
+		closed:    make(chan struct{}),
+		closeErr:  make(chan error, 1),
+		toProduce: make(chan *produceReq),
 	}
 	go spa.loop()
 	return spa
@@ -35,7 +36,8 @@ type synchronousMessageSinkAdapter struct {
 	aprod AsyncMessageSink
 
 	closeReq chan struct{}
-	closed   chan error
+	closed   chan struct{} // is used to signal to publishers that the sink was closed
+	closeErr chan error    // stores error from the backend or from closing it
 
 	toProduce chan *produceReq
 }
@@ -106,28 +108,29 @@ func (spa *synchronousMessageSinkAdapter) loop() {
 
 	// Wait for sink and loop to terminate and send close error tp closed channel
 	if sinkErr := rg.Wait(); sinkErr == nil || sinkErr == context.Canceled {
-		spa.closed <- spa.aprod.Close()
+		spa.closeErr <- spa.aprod.Close()
 	} else {
 		if err := spa.aprod.Close(); err != nil {
-			spa.closed <- errors.Errorf("sink error: %v sink close error: %v", sinkErr, err)
+			spa.closeErr <- errors.Errorf("sink error: %v sink close error: %v", sinkErr, err)
 		} else {
-			spa.closed <- sinkErr
+			spa.closeErr <- sinkErr
 		}
 	}
 	close(spa.closed)
+	close(spa.closeErr)
 }
 
 func (spa *synchronousMessageSinkAdapter) Close() error {
 	select {
-	case err, ok := <-spa.closed:
+	case err, ok := <-spa.closeErr:
 		if ok {
 			return err
 		}
 		return ErrSinkAlreadyClosed
 	case spa.closeReq <- struct{}{}:
 		// Check if channel is still open in case Close
-		// is called concurrently more than onces
-		err, ok := <-spa.closed
+		// is called concurrently more than once
+		err, ok := <-spa.closeErr
 		if ok {
 			return err
 		}
