@@ -11,13 +11,18 @@ import (
 )
 
 var (
+	defaultMaxUnflushedCount  = 1024
+	defaultMaxUnflushedPeriod = time.Second
+
 	_ substrate.AsyncMessageSink   = (*asyncMessageSink)(nil)
 	_ substrate.AsyncMessageSource = (*asyncMessageSource)(nil)
 )
 
 type AsyncMessageSinkConfig struct {
-	StreamStore   straw.StreamStore
-	FreezerConfig freezer.MessageSinkConfig
+	StreamStore        straw.StreamStore
+	FreezerConfig      freezer.MessageSinkConfig
+	MaxUnflushedCount  int           // maximum number of unflushed messages
+	MaxUnflushedPeriod time.Duration // maximum period before flushing
 }
 
 func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
@@ -25,36 +30,45 @@ func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageS
 	if err != nil {
 		return nil, err
 	}
-	return &asyncMessageSink{fms}, nil
+	if config.MaxUnflushedCount <= 0 {
+		config.MaxUnflushedCount = defaultMaxUnflushedCount
+	}
+	if config.MaxUnflushedPeriod <= 0 {
+		config.MaxUnflushedPeriod = defaultMaxUnflushedPeriod
+	}
+
+	return &asyncMessageSink{
+		fms:                fms,
+		maxUnflushedCount:  config.MaxUnflushedCount,
+		maxUnflushedPeriod: config.MaxUnflushedPeriod,
+	}, nil
 }
 
 type asyncMessageSink struct {
-	fms *freezer.MessageSink
+	fms                *freezer.MessageSink
+	maxUnflushedCount  int
+	maxUnflushedPeriod time.Duration
 }
 
 func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
 	var toAck []substrate.Message
-	t := time.NewTimer(0)
-	if !t.Stop() {
-		<-t.C
-	}
+
+	t := time.NewTicker(ams.maxUnflushedPeriod)
+	defer t.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case m := <-messages:
-			if !t.Stop() {
-				select {
-				case <-t.C:
-				default:
-				}
-			}
-			t.Reset(1000 * time.Millisecond)
 			if err := ams.fms.PutMessage(m.Data()); err != nil {
 				return err
 			}
 			toAck = append(toAck, m)
 		case <-t.C:
+			if len(toAck) == 0 {
+				continue
+			}
 			if err := ams.fms.Flush(); err != nil {
 				return err
 			}
@@ -67,19 +81,18 @@ func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 			}
 			toAck = toAck[0:0]
 		}
-		if len(toAck) > 1024 {
+		if len(toAck) >= ams.maxUnflushedCount {
 			if err := ams.fms.Flush(); err != nil {
 				return err
 			}
 			for _, m := range toAck {
 				select {
 				case <-ctx.Done():
-					return ctx.Err()
+					return nil
 				case acks <- m:
 				}
 			}
 			toAck = toAck[0:0]
-			t.Stop()
 		}
 	}
 }
