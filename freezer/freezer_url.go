@@ -3,6 +3,7 @@ package freezer
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/uw-labs/freezer"
@@ -30,6 +31,16 @@ func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 	case "none", "":
 	default:
 		return nil, fmt.Errorf("unknown compression type : %s", cts)
+	}
+
+	maxUnflushedStr := q.Get("max_unflushed")
+	var maxUnflushed int
+	if maxUnflushedStr != "" {
+		var err error
+		maxUnflushed, err = strconv.Atoi(maxUnflushedStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse max_unflushed value '%s'", maxUnflushedStr)
+		}
 	}
 
 	var streamstore straw.StreamStore
@@ -62,7 +73,8 @@ func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 		return nil, fmt.Errorf("unsupported scheme : %s", u.Scheme)
 	}
 	conf := AsyncMessageSinkConfig{
-		StreamStore: streamstore,
+		StreamStore:          streamstore,
+		MaxUnflushedMessages: maxUnflushed,
 		FreezerConfig: freezer.MessageSinkConfig{
 			Path:            u.Path,
 			CompressionType: ct,
