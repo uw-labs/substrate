@@ -16,20 +16,25 @@ var (
 )
 
 type AsyncMessageSinkConfig struct {
-	StreamStore   straw.StreamStore
-	FreezerConfig freezer.MessageSinkConfig
+	StreamStore          straw.StreamStore
+	MaxUnflushedMessages int
+	FreezerConfig        freezer.MessageSinkConfig
 }
 
 func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
+	if config.MaxUnflushedMessages == 0 {
+		config.MaxUnflushedMessages = 1024
+	}
 	fms, err := freezer.NewMessageSink(config.StreamStore, config.FreezerConfig)
 	if err != nil {
 		return nil, err
 	}
-	return &asyncMessageSink{fms}, nil
+	return &asyncMessageSink{fms, config.MaxUnflushedMessages}, nil
 }
 
 type asyncMessageSink struct {
-	fms *freezer.MessageSink
+	fms                  *freezer.MessageSink
+	maxUnflushedMessages int
 }
 
 func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
@@ -67,7 +72,7 @@ func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 			}
 			toAck = toAck[0:0]
 		}
-		if len(toAck) > 1024 {
+		if len(toAck) > ams.maxUnflushedMessages {
 			if err := ams.fms.Flush(); err != nil {
 				return err
 			}
