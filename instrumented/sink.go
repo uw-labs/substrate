@@ -54,6 +54,11 @@ func (ams *AsyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 			case acks <- success:
 			case <-ctx.Done():
 				return <-errs
+			case err := <-errs:
+				if err != nil {
+					ams.counter.WithLabelValues("error", ams.topic).Inc()
+				}
+				return err
 			}
 		case <-ctx.Done():
 			return <-errs
