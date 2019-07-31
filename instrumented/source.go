@@ -51,6 +51,11 @@ func (ams *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 			case toBeAcked <- ack:
 			case <-ctx.Done():
 				return <-errs
+			case err := <-errs:
+				if err != nil {
+					ams.counter.WithLabelValues("error", ams.topic).Inc()
+				}
+				return err
 			}
 			ams.counter.WithLabelValues("success", ams.topic).Inc()
 		case <-ctx.Done():
