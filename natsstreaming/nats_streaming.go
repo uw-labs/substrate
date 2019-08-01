@@ -4,11 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/nats-io/stan.go"
+	"github.com/pkg/errors"
 	"github.com/uw-labs/substrate"
 )
 
@@ -200,7 +200,44 @@ func (cm *consumerMessage) Data() []byte {
 	return cm.m.Data
 }
 
-func (c *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
+// getLatestSequence computes the latest sequence for a give queue.
+// As there is no simple way to do it, the trick is to subscribe using StartWithLastReceived and to store the sequence.
+func (ams *asyncMessageSource) getLatestSequence(ctx context.Context) (uint64, error) {
+	ch := make(chan uint64)
+
+	sub, err := ams.conn.QueueSubscribe(
+		ams.conf.Subject,
+		ams.conf.QueueGroup,
+		func(m *stan.Msg) {
+			ch <- m.Sequence
+		},
+		stan.StartWithLastReceived())
+	if err != nil {
+		return 0, errors.Wrapf(err, "unable to subscribe to queue %s", ams.conf.Subject)
+	}
+
+	defer sub.Unsubscribe()
+
+	select {
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	case offset := <-ch:
+		return offset, nil
+	}
+}
+
+func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message, opts ...substrate.Option) error {
+	options := substrate.ParseOptions(opts...)
+
+	rehydration, rehydrationCtx, rehydrationCh := options.WithRehydration()
+	var latestOffset uint64
+	if rehydration {
+		o, err := ams.getLatestSequence(rehydrationCtx)
+		if err != nil {
+			return errors.Wrap(err, "unable to retrieve latest sequence")
+		}
+		latestOffset = o
+	}
 
 	msgsToAck := make(chan *consumerMessage)
 
@@ -212,18 +249,21 @@ func (c *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<
 			return
 		case messages <- cm:
 		}
+		if rehydration && msg.Sequence == latestOffset {
+			rehydrationCh <- struct{}{}
+		}
 	}
 
-	maxInflight := c.conf.MaxInFlight
+	maxInflight := ams.conf.MaxInFlight
 	if maxInflight == 0 {
 		maxInflight = stan.DefaultMaxInflight
 	}
-	ackWait := c.conf.AckWait
+	ackWait := ams.conf.AckWait
 	if ackWait == 0 {
 		ackWait = stan.DefaultAckWait
 	}
 	var offsetOpt stan.SubscriptionOption
-	switch offset := c.conf.Offset; offset {
+	switch offset := ams.conf.Offset; offset {
 	case OffsetOldest:
 		offsetOpt = stan.DeliverAllAvailable()
 	case OffsetNewest:
@@ -232,12 +272,12 @@ func (c *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<
 		offsetOpt = stan.StartAtSequence(uint64(offset))
 	}
 
-	sub, err := c.conn.QueueSubscribe(
-		c.conf.Subject,
-		c.conf.QueueGroup,
+	sub, err := ams.conn.QueueSubscribe(
+		ams.conf.Subject,
+		ams.conf.QueueGroup,
 		f,
 		offsetOpt,
-		stan.DurableName(c.conf.QueueGroup),
+		stan.DurableName(ams.conf.QueueGroup),
 		stan.SetManualAckMode(),
 		stan.AckWait(ackWait),
 		stan.MaxInflight(maxInflight),
@@ -246,7 +286,7 @@ func (c *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<
 		return err
 	}
 
-	err = handleAcks(ctx, msgsToAck, acks, c.disconnected)
+	err = handleAcks(ctx, msgsToAck, acks, ams.disconnected)
 
 	se := sub.Close()
 	if err == nil {

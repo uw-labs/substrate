@@ -301,3 +301,81 @@ func TestProducerOnDisconnectedError(t *testing.T) {
 	case <-success:
 	}
 }
+
+func TestRehydration(t *testing.T) {
+	// seed nats with some test data
+	stanServerOpts := stand.GetDefaultOptions()
+	natsServerOpts := stand.DefaultNatsServerOptions
+	natsServerOpts.Port = 10247 // sorry!
+	natsServ, err := stand.RunServerWithOpts(stanServerOpts, &natsServerOpts)
+	require.NoError(t, err)
+	defer natsServ.Shutdown()
+	conn, err := stan.Connect(stand.DefaultClusterID, "test-publish", stan.NatsURL(fmt.Sprintf("nats://localhost:%d", natsServerOpts.Port)))
+	require.NoError(t, err)
+	for i := 0; i < 11; i++ {
+		err := conn.Publish("test", []byte(strconv.Itoa(i)))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// set up backend handler with a proxy in the connection
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	proxy := toxiproxy.NewProxy()
+	proxy.Listen = "localhost:10248"
+	proxy.Upstream = fmt.Sprintf("localhost:%d", natsServerOpts.Port)
+	err = proxy.Start()
+	asyncSource, err := NewAsyncMessageSource(AsyncMessageSourceConfig{
+		AckWait:                time.Second * 30,
+		ClientID:               "test",
+		ClusterID:              stand.DefaultClusterID,
+		MaxInFlight:            1,
+		Offset:                 OffsetOldest,
+		QueueGroup:             "test",
+		Subject:                "test",
+		URL:                    fmt.Sprintf("nats://%s", proxy.Listen),
+		ConnectionNumPings:     3,
+		ConnectionPingInterval: 1,
+	})
+	require.NoError(t, err)
+	success := make(chan struct{})
+	egrp, groupCtx := errgroup.WithContext(ctx)
+	messageChan := make(chan substrate.Message)
+	ackChan := make(chan substrate.Message)
+	egrp.Go(func() error {
+		for msg := range messageChan {
+			val, _ := strconv.Atoi(string(msg.Data()))
+			if val == 10 {
+				t.Log("close proxy after 10 msgs")
+				proxy.Stop() // close proxy after 10 msgs
+			}
+			ackChan <- msg
+		}
+		return nil
+	})
+	egrp.Go(func() error {
+		timeout, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		ch := make(chan struct{})
+		err := asyncSource.ConsumeMessages(groupCtx, messageChan, ackChan, substrate.WithRehydration(timeout, ch))
+		if err != nil && err != context.Canceled {
+			select {
+			case <-timeout.Done():
+				t.Fatal(timeout.Err())
+			case <-ch:
+				t.Log(err)
+				close(success) // our handler returned the error from the ping timeout
+			}
+		}
+		return err
+	})
+	select {
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	case <-success:
+	}
+}

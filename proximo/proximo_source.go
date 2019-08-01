@@ -87,7 +87,7 @@ func (cm *consMsg) getMsgID() string {
 	return cm.id
 }
 
-func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
+func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message, opts ...substrate.Option) error {
 
 	rg, ctx := rungroup.New(ctx)
 	client := proto.NewMessageSourceClient(ams.conn)

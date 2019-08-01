@@ -35,7 +35,7 @@ func NewAsyncMessageSource(source substrate.AsyncMessageSource, counterOpts prom
 }
 
 // ConsumeMessages implements message consuming wrapped in instrumentation
-func (ams *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
+func (ams *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message, opts ...substrate.Option) error {
 	toBeAcked := make(chan substrate.Message, cap(acks))
 
 	errs := make(chan error)

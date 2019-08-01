@@ -17,7 +17,7 @@ type asyncMessageSourceMock struct {
 	consumerMessagesMock func(context.Context, chan<- substrate.Message, <-chan substrate.Message) error
 }
 
-func (m asyncMessageSourceMock) ConsumeMessages(ctx context.Context, in chan<- substrate.Message, acks <-chan substrate.Message) error {
+func (m asyncMessageSourceMock) ConsumeMessages(ctx context.Context, in chan<- substrate.Message, acks <-chan substrate.Message, opts ...substrate.Option) error {
 	return m.consumerMessagesMock(ctx, in, acks)
 }
 

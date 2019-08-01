@@ -115,7 +115,7 @@ type asyncMessageSource struct {
 	fms *freezer.MessageSource
 }
 
-func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
+func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message, opts ...substrate.Option) error {
 
 	eg, ctx := errgroup.WithContext(ctx)
 

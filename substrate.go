@@ -46,7 +46,7 @@ type AsyncMessageSource interface {
 	// channel and expects them to be sent back to the `acks` channel once
 	// that have been handled properly.  This function will block until
 	// `ctx` is done, or until an error occurs.
-	ConsumeMessages(ctx context.Context, messages chan<- Message, acks <-chan Message) error
+	ConsumeMessages(ctx context.Context, messages chan<- Message, acks <-chan Message, opts ...Option) error
 	// Close permanently closes the AsyncMessageSource and frees underlying resources
 	Close() error
 	Statuser

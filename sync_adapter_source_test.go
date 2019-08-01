@@ -121,7 +121,7 @@ type mockAsyncSource struct {
 	closed chan struct{}
 }
 
-func (mock *mockAsyncSource) ConsumeMessages(ctx context.Context, messages chan<- Message, acks <-chan Message) error {
+func (mock *mockAsyncSource) ConsumeMessages(ctx context.Context, messages chan<- Message, acks <-chan Message, opts ...Option) error {
 	for {
 		select {
 		case <-ctx.Done():

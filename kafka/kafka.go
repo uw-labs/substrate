@@ -230,7 +230,7 @@ func (cm *consumerMessage) DiscardPayload() {
 	cm.cm = nil
 }
 
-func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
+func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message, opts ...substrate.Option) error {
 
 	c, err := cluster.NewConsumerFromClient(ams.client, ams.consumerGroup, []string{ams.topic})
 	if err != nil {
