@@ -16,5 +16,6 @@
 //      consumer-group     - The consumer group id
 //      keep-alive-time    - The interval that a keep alive is performed at as a go duration
 //      keep-alive-timeout - The go duration at which a keepalive will timeout [Default: 10s] (requires keep-alive-time to take effect, if keep-alive-time is not present this is ignored)
+//      insecure=true      - The connection to the proximo grpc endpoint will not be using TLS
 //
 package proximo
