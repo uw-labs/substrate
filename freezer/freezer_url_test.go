@@ -28,7 +28,7 @@ func TestFreezerSink(t *testing.T) {
 					CompressionType: freezer.CompressionTypeNone,
 					Path:            "/foo/1",
 				},
-				StreamStore: &straw.OsStreamStore{},
+				StreamStore: osst,
 			},
 			expectedErr: nil,
 		},
@@ -40,7 +40,7 @@ func TestFreezerSink(t *testing.T) {
 					CompressionType: freezer.CompressionTypeSnappy,
 					Path:            "/foo/bar2/baz/",
 				},
-				StreamStore: &straw.OsStreamStore{},
+				StreamStore: osst,
 			},
 			expectedErr: nil,
 		},
@@ -66,6 +66,10 @@ func TestFreezerSink(t *testing.T) {
 
 }
 
+var (
+	osst, _ = straw.Open("file:///")
+)
+
 func TestFreezerSource(t *testing.T) {
 	assert := assert.New(t)
 
@@ -84,7 +88,7 @@ func TestFreezerSource(t *testing.T) {
 					Path:            "/foo/baz1/",
 					PollPeriod:      10 * time.Second,
 				},
-				StreamStore: &straw.OsStreamStore{},
+				StreamStore: osst,
 			},
 			expectedErr: nil,
 		},
@@ -97,7 +101,7 @@ func TestFreezerSource(t *testing.T) {
 					Path:            "/foo/baz3/",
 					PollPeriod:      10 * time.Second,
 				},
-				StreamStore: &straw.OsStreamStore{},
+				StreamStore: osst,
 			},
 			expectedErr: nil,
 		},
