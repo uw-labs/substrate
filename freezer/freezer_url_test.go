@@ -1,6 +1,7 @@
 package freezer
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -13,6 +14,10 @@ import (
 
 func TestFreezerSink(t *testing.T) {
 	assert := assert.New(t)
+
+	strawOpen = func(url string) (straw.StreamStore, error) {
+		return &mockStore{url}, nil
+	}
 
 	tests := []struct {
 		name        string
@@ -28,7 +33,7 @@ func TestFreezerSink(t *testing.T) {
 					CompressionType: freezer.CompressionTypeNone,
 					Path:            "/foo/1",
 				},
-				StreamStore: osst,
+				StreamStore: &mockStore{"file:///"},
 			},
 			expectedErr: nil,
 		},
@@ -40,7 +45,7 @@ func TestFreezerSink(t *testing.T) {
 					CompressionType: freezer.CompressionTypeSnappy,
 					Path:            "/foo/bar2/baz/",
 				},
-				StreamStore: osst,
+				StreamStore: &mockStore{"file:///"},
 			},
 			expectedErr: nil,
 		},
@@ -66,10 +71,6 @@ func TestFreezerSink(t *testing.T) {
 
 }
 
-var (
-	osst, _ = straw.Open("file:///")
-)
-
 func TestFreezerSource(t *testing.T) {
 	assert := assert.New(t)
 
@@ -88,7 +89,7 @@ func TestFreezerSource(t *testing.T) {
 					Path:            "/foo/baz1/",
 					PollPeriod:      10 * time.Second,
 				},
-				StreamStore: osst,
+				StreamStore: &mockStore{"file:///"},
 			},
 			expectedErr: nil,
 		},
@@ -101,7 +102,7 @@ func TestFreezerSource(t *testing.T) {
 					Path:            "/foo/baz3/",
 					PollPeriod:      10 * time.Second,
 				},
-				StreamStore: osst,
+				StreamStore: &mockStore{"file:///"},
 			},
 			expectedErr: nil,
 		},
@@ -125,4 +126,40 @@ func TestFreezerSource(t *testing.T) {
 		})
 	}
 
+}
+
+type mockStore struct {
+	url string
+}
+
+func (m *mockStore) Close() error {
+	return nil
+}
+
+func (m *mockStore) OpenReadCloser(name string) (straw.StrawReader, error) {
+	panic("not implemented")
+}
+
+func (m *mockStore) CreateWriteCloser(name string) (straw.StrawWriter, error) {
+	panic("not implemented")
+}
+
+func (m *mockStore) Lstat(path string) (os.FileInfo, error) {
+	panic("not implemented")
+}
+
+func (m *mockStore) Stat(path string) (os.FileInfo, error) {
+	panic("not implemented")
+}
+
+func (m *mockStore) Readdir(path string) ([]os.FileInfo, error) {
+	panic("not implemented")
+}
+
+func (m *mockStore) Mkdir(path string, mode os.FileMode) error {
+	panic("not implemented")
+}
+
+func (m *mockStore) Remove(path string) error {
+	panic("not implemented")
 }

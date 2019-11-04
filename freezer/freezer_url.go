@@ -48,7 +48,7 @@ func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 	var err error
 	switch u.Scheme {
 	case "freezer+dir":
-		streamstore, err = straw.Open("file:///")
+		streamstore, err = strawOpen("file:///")
 		if err != nil {
 			return nil, err
 		}
@@ -74,7 +74,7 @@ func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 
 		u1.RawQuery = newVals.Encode()
 
-		streamstore, err = straw.Open(u1.String())
+		streamstore, err = strawOpen(u1.String())
 		if err != nil {
 			return nil, err
 		}
@@ -109,7 +109,7 @@ func newFreezerSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 
 	switch u.Scheme {
 	case "freezer+dir":
-		ss, err := straw.Open("file:///")
+		ss, err := strawOpen("file:///")
 		if err != nil {
 			return nil, err
 		}
@@ -140,7 +140,7 @@ func newFreezerSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 		}
 		u1.RawQuery = newVals.Encode()
 
-		ss, err := straw.Open(u1.String())
+		ss, err := strawOpen(u1.String())
 		if err != nil {
 			return nil, err
 		}
@@ -160,3 +160,5 @@ func newFreezerSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 }
 
 var sourcer = NewAsyncMessageSource
+
+var strawOpen = straw.Open
