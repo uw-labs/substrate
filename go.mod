@@ -19,9 +19,9 @@ require (
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.4.0
-	github.com/uw-labs/freezer v0.0.0-20190920143022-fb6f336e053f
+	github.com/uw-labs/freezer v0.0.0-20191031131113-a110b65be83c
 	github.com/uw-labs/proximo v0.0.0-20190913093050-8229af78f5dd
-	github.com/uw-labs/straw v0.0.0-20191028082632-df455ab35be2
+	github.com/uw-labs/straw v0.0.0-20191031094804-9da24782a5fe
 	github.com/uw-labs/sync v0.0.0-20190307114256-1bb306bf6e71
 	go.opencensus.io v0.22.1 // indirect
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
