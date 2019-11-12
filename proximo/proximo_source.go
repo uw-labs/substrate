@@ -31,17 +31,23 @@ var (
 // AsyncMessageSource represents a proximo message source and implements the
 // substrate.AsyncMessageSource interface.
 type AsyncMessageSourceConfig struct {
-	ConsumerGroup string
-	Topic         string
-	Broker        string
-	Offset        Offset
-	Insecure      bool
-	KeepAlive     *KeepAlive
+	ConsumerGroup  string
+	Topic          string
+	Broker         string
+	Offset         Offset
+	Insecure       bool
+	KeepAlive      *KeepAlive
+	MaxRecvMsgSize int
 }
 
 func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
 
-	conn, err := dialProximo(c.Broker, c.Insecure, c.KeepAlive)
+	conn, err := dialProximo(dialConfig{
+		broker:         c.Broker,
+		insecure:       c.Insecure,
+		keepAlive:      c.KeepAlive,
+		maxRecvMsgSize: c.MaxRecvMsgSize,
+	})
 	if err != nil {
 		return nil, err
 	}
