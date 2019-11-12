@@ -3,6 +3,7 @@ package proximo
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -87,6 +88,14 @@ func newProximoSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 	case "":
 	default:
 		return nil, fmt.Errorf("unknown offset value '%s'", q.Get("offset"))
+	}
+
+	if maxSize := q.Get("max-recv-msg-size"); maxSize != "" {
+		size, err := strconv.Atoi(maxSize)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse max-recv-msg-size parameter: %s", err.Error())
+		}
+		conf.MaxRecvMsgSize = size
 	}
 
 	return proximoSourcer(conf)

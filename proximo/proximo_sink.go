@@ -27,7 +27,11 @@ type AsyncMessageSinkConfig struct {
 
 func NewAsyncMessageSink(c AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
 
-	conn, err := dialProximo(c.Broker, c.Insecure, c.KeepAlive)
+	conn, err := dialProximo(dialConfig{
+		broker:    c.Broker,
+		insecure:  c.Insecure,
+		keepAlive: c.KeepAlive,
+	})
 	if err != nil {
 		return nil, err
 	}

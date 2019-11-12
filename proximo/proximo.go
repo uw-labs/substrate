@@ -22,26 +22,40 @@ type KeepAlive struct {
 	Timeout time.Duration
 }
 
-func dialProximo(broker string, insecure bool, ka *KeepAlive) (*grpc.ClientConn, error) {
+type dialConfig struct {
+	broker         string
+	insecure       bool
+	keepAlive      *KeepAlive
+	maxRecvMsgSize int
+}
+
+const defaultMaxRecvMsgSize = 1024 * 1024 * 64
+
+func dialProximo(conf dialConfig) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 
-	if ka != nil {
+	if conf.keepAlive != nil {
 		opts = append(opts, grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:    ka.Time,
-			Timeout: ka.Timeout,
+			Time:    conf.keepAlive.Time,
+			Timeout: conf.keepAlive.Timeout,
 		}))
 	}
 
-	if insecure {
+	if conf.insecure {
 		opts = append(opts, grpc.WithInsecure())
 	} else {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(new(tls.Config))))
 	}
-	opts = append(opts, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1024*1024*64)))
 
-	conn, err := grpc.Dial(broker, opts...)
+	maxRecvMsgSize := defaultMaxRecvMsgSize
+	if conf.maxRecvMsgSize > 0 {
+		maxRecvMsgSize = conf.maxRecvMsgSize
+	}
+	opts = append(opts, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxRecvMsgSize)))
+
+	conn, err := grpc.Dial(conf.broker, opts...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to dial %s", broker)
+		return nil, errors.Wrapf(err, "failed to dial %s", conf.broker)
 	}
 
 	return conn, nil
