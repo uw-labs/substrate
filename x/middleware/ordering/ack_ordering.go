@@ -100,7 +100,7 @@ type ackMessage struct {
 }
 
 func (msg *ackMessage) Data() []byte {
-	return msg.Data()
+	return msg.msg.Data()
 }
 
 func (msg *ackMessage) DiscardPayload() {
