@@ -85,6 +85,8 @@ github.com/googleapis/gax-go/v2 v2.0.5 h1:sjZBwGj9Jlw33ImPtvFviGYvseOtDM7hkSKB7+
 github.com/googleapis/gax-go/v2 v2.0.5/go.mod h1:DWXyrwAJ9X0FpwwEdw+IPEYBICEFu5mhpdKc/us6bOk=
 github.com/gorilla/mux v1.7.2 h1:zoNxOV7WjqXptQOVngLmcSQgXmgk4NMz1HibBchjl/I=
 github.com/gorilla/mux v1.7.2/go.mod h1:1lud6UwP+6orDFRuTfBEV8e9/aOM/c4fVVCaMa2zaAs=
+github.com/hashicorp/errwrap v1.0.0 h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=
+github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/go-cleanhttp v0.5.0/go.mod h1:JpRdi6/HCYpAwUzNwuwqhbovhLtngrth3wmdIIUrZ80=
 github.com/hashicorp/go-hclog v0.9.1 h1:9PZfAcVEvez4yhLH2TBU64/h/z4xlFI80cWXRrxuKuM=
 github.com/hashicorp/go-hclog v0.9.1/go.mod h1:5CU+agLiy3J7N7QjHK5d05KxGsuXiQLrjA0H7acj2lQ=
@@ -92,6 +94,8 @@ github.com/hashicorp/go-immutable-radix v1.0.0 h1:AKDB1HM5PWEA7i4nhcpwOrO2byshxB
 github.com/hashicorp/go-immutable-radix v1.0.0/go.mod h1:0y9vanUI8NX6FsYoO3zeMjhV/C5i9g4Q3DwcSNZ4P60=
 github.com/hashicorp/go-msgpack v0.5.5 h1:i9R9JSrqIz0QVLz3sz+i3YJdT7TTSLcfLLzJi9aZTuI=
 github.com/hashicorp/go-msgpack v0.5.5/go.mod h1:ahLV/dePpqEmjfWmKiqvPkv/twdG7iPBM1vqhUKIvfM=
+github.com/hashicorp/go-multierror v1.0.0 h1:iVjPR7a6H0tWELX5NxNe7bYopibicUzc7uPribsnS6o=
+github.com/hashicorp/go-multierror v1.0.0/go.mod h1:dHtQlpGsu+cZNNAkkCN/P3hoUDHhCYQXV3UM06sGGrk=
 github.com/hashicorp/go-retryablehttp v0.5.3/go.mod h1:9B5zBasrRhHXnJnui7y6sL7es7NDiJgTc6Er0maI1Xs=
 github.com/hashicorp/go-uuid v1.0.0/go.mod h1:6SBZvOh/SIDV7/2o3Jml5SYk/TvGqwFJ/bN7x4byOro=
 github.com/hashicorp/go-uuid v1.0.1 h1:fv1ep09latC32wFoVwnqcnKJGnMSdBanPczbHAYm1BE=
@@ -219,10 +223,6 @@ github.com/uw-labs/proximo v0.0.0-20190913093050-8229af78f5dd h1:rEvgmQoJk1MxPhv
 github.com/uw-labs/proximo v0.0.0-20190913093050-8229af78f5dd/go.mod h1:qvhJ61jBx9RI4vrThNU4jroHCMpbU850pzmm+1b4fYk=
 github.com/uw-labs/straw v0.0.0-20191028082632-df455ab35be2 h1:HfUl3y1rxQg40fN6+A147+OkK53KQM6Sk0hYHWHPvkw=
 github.com/uw-labs/straw v0.0.0-20191028082632-df455ab35be2/go.mod h1:bVgIBcoAnl11UG58LiS78c/+ocH5s0QXKloPod/ODiQ=
-github.com/uw-labs/straw v0.0.0-20191029143651-5e7fa8010b0a h1:KmsuvDrSjxLHRpbUlvn1ZAV0jXyTL6nqFsca45p5c6g=
-github.com/uw-labs/straw v0.0.0-20191029143651-5e7fa8010b0a/go.mod h1:bVgIBcoAnl11UG58LiS78c/+ocH5s0QXKloPod/ODiQ=
-github.com/uw-labs/straw v0.0.0-20191029200739-5cbfdb03e807 h1:iVzpctmiVgRXBFtxfzd66QXPQU5GXVXiEceA6E1+jsQ=
-github.com/uw-labs/straw v0.0.0-20191029200739-5cbfdb03e807/go.mod h1:bVgIBcoAnl11UG58LiS78c/+ocH5s0QXKloPod/ODiQ=
 github.com/uw-labs/substrate v0.0.0-20190606111548-e9b3a4b7c12c/go.mod h1:dyyAUJcMCwdJ5EaYf8bh2rCNvSH9wwQEIpfZwt+bOn8=
 github.com/uw-labs/sync v0.0.0-20190307114256-1bb306bf6e71 h1:1fL6kfRp9ebXBzK3powp5uKM3dCtK62RCiadQDqcR1Q=
 github.com/uw-labs/sync v0.0.0-20190307114256-1bb306bf6e71/go.mod h1:zTU/pesbF9d3ZN7+XwKhdE50y0SCCblmzwukXRnZkXs=

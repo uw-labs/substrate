@@ -9,6 +9,7 @@ require (
 	github.com/bsm/sarama-cluster v2.1.15+incompatible
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/google/uuid v1.1.1
+	github.com/hashicorp/go-multierror v1.0.0
 	github.com/klauspost/cpuid v1.2.1 // indirect
 	github.com/nats-io/nats-streaming-server v0.16.2
 	github.com/nats-io/nats.go v1.9.0
