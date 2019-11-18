@@ -1,21 +1,24 @@
-package middleware
+package ordering
 
 import (
 	"context"
 
 	"github.com/pkg/errors"
+
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/sync/rungroup"
 )
 
-type ackOrderingMiddleware struct {
-	delegate substrate.AsyncMessageSource
-}
-
+// NewAckOrderingMessageSource is a message source that accepts acknowledgements in any order and
+// forwards them to underlying source in the order in which the messages are read.
 func NewAckOrderingMessageSource(delegate substrate.AsyncMessageSource) substrate.AsyncMessageSource {
 	return &ackOrderingMiddleware{
 		delegate: delegate,
 	}
+}
+
+type ackOrderingMiddleware struct {
+	delegate substrate.AsyncMessageSource
 }
 
 func (m *ackOrderingMiddleware) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
