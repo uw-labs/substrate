@@ -55,6 +55,7 @@ func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 
 		sse := q.Get("sse")
 		switch sse {
+		case "":
 		case "aes256":
 			enc = straw.S3ServerSideEncoding(straw.ServerSideEncryptionTypeAES256)
 		default:
