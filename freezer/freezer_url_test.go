@@ -1,7 +1,6 @@
 package freezer
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -16,7 +15,7 @@ func TestFreezerSink(t *testing.T) {
 	assert := assert.New(t)
 
 	strawOpen = func(url string) (straw.StreamStore, error) {
-		return &mockStore{url}, nil
+		return &mockStore{url: url}, nil
 	}
 
 	tests := []struct {
@@ -33,7 +32,7 @@ func TestFreezerSink(t *testing.T) {
 					CompressionType: freezer.CompressionTypeNone,
 					Path:            "/foo/1",
 				},
-				StreamStore: &mockStore{"file:///"},
+				StreamStore: &mockStore{url: "file:///"},
 			},
 			expectedErr: nil,
 		},
@@ -45,7 +44,7 @@ func TestFreezerSink(t *testing.T) {
 					CompressionType: freezer.CompressionTypeSnappy,
 					Path:            "/foo/bar2/baz/",
 				},
-				StreamStore: &mockStore{"file:///"},
+				StreamStore: &mockStore{url: "file:///"},
 			},
 			expectedErr: nil,
 		},
@@ -57,7 +56,7 @@ func TestFreezerSink(t *testing.T) {
 					CompressionType: freezer.CompressionTypeNone,
 					Path:            "/1",
 				},
-				StreamStore: &mockStore{"s3://foo"},
+				StreamStore: &mockStore{url: "s3://foo"},
 			},
 			expectedErr: nil,
 		},
@@ -69,7 +68,7 @@ func TestFreezerSink(t *testing.T) {
 					CompressionType: freezer.CompressionTypeSnappy,
 					Path:            "/bar2/baz/",
 				},
-				StreamStore: &mockStore{"s3://foo?sse=AES256"},
+				StreamStore: &mockStore{url: "s3://foo?sse=AES256"},
 			},
 			expectedErr: nil,
 		},
@@ -113,7 +112,7 @@ func TestFreezerSource(t *testing.T) {
 					Path:            "/foo/baz1/",
 					PollPeriod:      10 * time.Second,
 				},
-				StreamStore: &mockStore{"file:///"},
+				StreamStore: &mockStore{url: "file:///"},
 			},
 			expectedErr: nil,
 		},
@@ -126,7 +125,7 @@ func TestFreezerSource(t *testing.T) {
 					Path:            "/foo/baz3/",
 					PollPeriod:      10 * time.Second,
 				},
-				StreamStore: &mockStore{"file:///"},
+				StreamStore: &mockStore{url: "file:///"},
 			},
 			expectedErr: nil,
 		},
@@ -139,7 +138,7 @@ func TestFreezerSource(t *testing.T) {
 					Path:            "/baz1/",
 					PollPeriod:      10 * time.Second,
 				},
-				StreamStore: &mockStore{"s3://foo"},
+				StreamStore: &mockStore{url: "s3://foo"},
 			},
 			expectedErr: nil,
 		},
@@ -152,7 +151,7 @@ func TestFreezerSource(t *testing.T) {
 					Path:            "/baz3/",
 					PollPeriod:      10 * time.Second,
 				},
-				StreamStore: &mockStore{"s3://foo?sse=AES256"},
+				StreamStore: &mockStore{url: "s3://foo?sse=AES256"},
 			},
 			expectedErr: nil,
 		},
@@ -179,37 +178,6 @@ func TestFreezerSource(t *testing.T) {
 }
 
 type mockStore struct {
+	straw.StreamStore
 	url string
-}
-
-func (m *mockStore) Close() error {
-	return nil
-}
-
-func (m *mockStore) OpenReadCloser(name string) (straw.StrawReader, error) {
-	panic("not implemented")
-}
-
-func (m *mockStore) CreateWriteCloser(name string) (straw.StrawWriter, error) {
-	panic("not implemented")
-}
-
-func (m *mockStore) Lstat(path string) (os.FileInfo, error) {
-	panic("not implemented")
-}
-
-func (m *mockStore) Stat(path string) (os.FileInfo, error) {
-	panic("not implemented")
-}
-
-func (m *mockStore) Readdir(path string) ([]os.FileInfo, error) {
-	panic("not implemented")
-}
-
-func (m *mockStore) Mkdir(path string, mode os.FileMode) error {
-	panic("not implemented")
-}
-
-func (m *mockStore) Remove(path string) error {
-	panic("not implemented")
 }
