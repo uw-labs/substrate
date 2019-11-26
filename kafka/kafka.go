@@ -4,10 +4,7 @@ import (
 	"context"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/Shopify/sarama"
-	cluster "github.com/bsm/sarama-cluster"
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/internal/unwrap"
 )
@@ -165,7 +162,7 @@ type AsyncMessageSourceConfig struct {
 	Version                  string
 }
 
-func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*cluster.Config, error) {
+func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*sarama.Config, error) {
 	offset := OffsetNewest
 	if ams.Offset != 0 {
 		offset = ams.Offset
@@ -175,7 +172,7 @@ func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*cluster.Confi
 		mrf = ams.MetadataRefreshFrequency
 	}
 
-	config := cluster.NewConfig()
+	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
 	config.Consumer.Offsets.Initial = offset
 	config.Metadata.RefreshFrequency = mrf
@@ -198,7 +195,7 @@ func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSo
 		return nil, err
 	}
 
-	client, err := cluster.NewClient(c.Brokers, config)
+	client, err := sarama.NewClient(c.Brokers, config)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +208,7 @@ func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSo
 }
 
 type asyncMessageSource struct {
-	client        *cluster.Client
+	client        sarama.Client
 	consumerGroup string
 	topic         string
 }
@@ -250,9 +247,57 @@ func (cm *consumerMessage) DiscardPayload() {
 	cm.cm = nil
 }
 
-func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
+type consumerGroupHandler struct {
+	ctx context.Context
 
-	c, err := cluster.NewConsumerFromClient(ams.client, ams.consumerGroup, []string{ams.topic})
+	messages chan<- substrate.Message
+	acks     <-chan substrate.Message
+}
+
+// Setup is run at the beginning of a new session, before ConsumeClaim.
+func (_ *consumerGroupHandler) Setup(_ sarama.ConsumerGroupSession) error { return nil }
+
+// Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
+// but before the offsets are committed for the very last time.
+func (c *consumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
+
+// ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
+// Once the Messages() channel is closed, the Handler must finish its processing
+// loop and exit.
+func (c *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+	// This function can be called concurrently for multiple claims, so the code
+	// below, absent locking etc may seem wrong, but it's actually fine.
+	// Different partition claims can be processed concurrently, but we funnel
+	// them all into c.messages.  The caller puts all acks into c.acks and it
+	// doesn't matter which one of us processes the offset marking because they
+	// all work with the same session.
+	for {
+		select {
+		case <-c.ctx.Done():
+			return c.ctx.Err()
+		case m, ok := <-claim.Messages():
+			if !ok {
+				return nil
+			}
+			select {
+			case c.messages <- &consumerMessage{cm: m}:
+			case <-c.ctx.Done():
+				return c.ctx.Err()
+			}
+		case a := <-c.acks:
+			cm := a.(*consumerMessage)
+			if cm.cm != nil {
+				sess.MarkMessage(cm.cm, "")
+			} else {
+				off := cm.offset
+				sess.MarkOffset(off.topic, off.partition, off.offset, "")
+			}
+		}
+	}
+}
+
+func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
+	c, err := sarama.NewConsumerGroupFromClient(ams.consumerGroup, ams.client)
 	if err != nil {
 		return err
 	}
@@ -261,74 +306,9 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 		_ = c.Close()
 	}()
 
-	toAck := make(chan *consumerMessage)
-	eg, ctx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		return ams.passMessagesToClient(ctx, c.Messages(), messages, toAck)
-	})
-	eg.Go(func() error {
-		return ams.passAcksToKafka(ctx, c, acks, toAck)
-	})
+	h := &consumerGroupHandler{ctx, messages, acks}
+	return c.Consume(ctx, []string{ams.topic}, h)
 
-	return eg.Wait()
-}
-
-func (ams *asyncMessageSource) passMessagesToClient(ctx context.Context, fromKafka <-chan *sarama.ConsumerMessage, messages chan<- substrate.Message, toAck chan<- *consumerMessage) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case msg := <-fromKafka:
-			message := &consumerMessage{cm: msg}
-
-			select {
-			case <-ctx.Done():
-				return nil
-			case toAck <- message:
-			}
-			select {
-			case <-ctx.Done():
-				return nil
-			case messages <- message:
-			}
-		}
-	}
-}
-
-func (ams *asyncMessageSource) passAcksToKafka(ctx context.Context, c *cluster.Consumer, acks <-chan substrate.Message, toAck <-chan *consumerMessage) error {
-	var forAcking []*consumerMessage
-
-	for {
-		select {
-		case msg := <-toAck:
-			forAcking = append(forAcking, msg)
-		case ack := <-acks:
-			switch {
-			case len(forAcking) == 0:
-				return substrate.InvalidAckError{
-					Acked:    ack,
-					Expected: nil,
-				}
-			case ack != forAcking[0]:
-				return substrate.InvalidAckError{
-					Acked:    ack,
-					Expected: forAcking[0],
-				}
-			default:
-				if forAcking[0].offset != nil {
-					off := forAcking[0].offset
-					c.MarkPartitionOffset(off.topic, off.partition, off.offset, "")
-				} else {
-					c.MarkOffset(forAcking[0].cm, "")
-				}
-				forAcking = forAcking[1:]
-			}
-		case err := <-c.Errors():
-			return err
-		case <-ctx.Done():
-			return c.Close()
-		}
-	}
 }
 
 func (ams *asyncMessageSource) Status() (*substrate.Status, error) {
