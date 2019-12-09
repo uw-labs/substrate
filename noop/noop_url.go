@@ -12,7 +12,5 @@ func init() {
 }
 
 func newNoopSink(u *url.URL) (substrate.AsyncMessageSink, error) {
-	return noopSinker()
+	return NewAsyncMessageSink()
 }
-
-var noopSinker = NewAsyncMessageSink

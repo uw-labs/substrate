@@ -6,16 +6,16 @@ import (
 	"github.com/uw-labs/substrate"
 )
 
-// AsyncMessageSink does no operations on publish messages calls
-type AsyncMessageSink struct{}
+// asyncMessageSink does no operations on publish messages calls
+type asyncMessageSink struct{}
 
-// NewAsyncMessageSink returns a pointer to a new AsyncMessageSink
+// NewAsyncMessageSink returns a pointer to a new asyncMessageSink
 func NewAsyncMessageSink() (substrate.AsyncMessageSink, error) {
-	return &AsyncMessageSink{}, nil
+	return &asyncMessageSink{}, nil
 }
 
 // PublishMessages implements message publishing by only acknowledging the messages
-func (ams *AsyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
+func (ams asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) error {
 	for {
 		select {
 		case msg := <-messages:
@@ -31,11 +31,11 @@ func (ams *AsyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 }
 
 // Close closes the message sink
-func (ams *AsyncMessageSink) Close() error {
+func (ams asyncMessageSink) Close() error {
 	return nil
 }
 
 // Status returns the status of this sink (always working)
-func (ams *AsyncMessageSink) Status() (*substrate.Status, error) {
+func (ams asyncMessageSink) Status() (*substrate.Status, error) {
 	return &substrate.Status{Working: true}, nil
 }

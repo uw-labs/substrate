@@ -18,7 +18,10 @@ func (m Message) Data() []byte {
 }
 
 func TestPublishMessages(t *testing.T) {
-	sink := noop.AsyncMessageSink{}
+	sink, err := noop.NewAsyncMessageSink()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	acks := make(chan substrate.Message)
 	messages := make(chan substrate.Message)
