@@ -10,8 +10,8 @@ import (
 type asyncMessageSink struct{}
 
 // NewAsyncMessageSink returns a pointer to a new asyncMessageSink
-func NewAsyncMessageSink() (substrate.AsyncMessageSink, error) {
-	return &asyncMessageSink{}, nil
+func NewAsyncMessageSink() substrate.AsyncMessageSink {
+	return &asyncMessageSink{}
 }
 
 // PublishMessages implements message publishing by only acknowledging the messages
