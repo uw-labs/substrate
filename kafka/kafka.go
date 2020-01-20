@@ -2,11 +2,14 @@ package kafka
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/hashicorp/go-multierror"
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/internal/unwrap"
+	"github.com/uw-labs/sync/rungroup"
 )
 
 var (
@@ -199,22 +202,28 @@ func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSo
 	if err != nil {
 		return nil, err
 	}
+	consumerGroup, err := sarama.NewConsumerGroupFromClient(c.ConsumerGroup, client)
+	if err != nil {
+		_ = client.Close()
+		return nil, err
+	}
 
 	return &asyncMessageSource{
 		client:        client,
-		consumerGroup: c.ConsumerGroup,
+		consumerGroup: consumerGroup,
 		topic:         c.Topic,
 	}, nil
 }
 
 type asyncMessageSource struct {
 	client        sarama.Client
-	consumerGroup string
+	consumerGroup sarama.ConsumerGroup
 	topic         string
 }
 
 type consumerMessage struct {
-	cm *sarama.ConsumerMessage
+	sess sarama.ConsumerGroupSession
+	cm   *sarama.ConsumerMessage
 
 	offset *struct {
 		topic     string
@@ -247,11 +256,20 @@ func (cm *consumerMessage) DiscardPayload() {
 	cm.cm = nil
 }
 
+func (cm *consumerMessage) ack() {
+	if cm.cm != nil {
+		cm.sess.MarkMessage(cm.cm, "")
+	} else {
+		off := cm.offset
+		cm.sess.MarkOffset(off.topic, off.partition, off.offset, "")
+	}
+}
+
 type consumerGroupHandler struct {
 	ctx context.Context
 
 	messages chan<- substrate.Message
-	acks     <-chan substrate.Message
+	toAck    chan<- *consumerMessage
 }
 
 // Setup is run at the beginning of a new session, before ConsumeClaim.
@@ -274,47 +292,80 @@ func (c *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, cl
 	for {
 		select {
 		case <-c.ctx.Done():
-			return c.ctx.Err()
+			return nil
 		case m, ok := <-claim.Messages():
 			if !ok {
 				return nil
 			}
+			cm := &consumerMessage{cm: m, sess: sess}
 			select {
-			case c.messages <- &consumerMessage{cm: m}:
+			case c.toAck <- cm:
 			case <-c.ctx.Done():
-				return c.ctx.Err()
+				return nil
 			}
-		case a := <-c.acks:
-			cm := a.(*consumerMessage)
-			if cm.cm != nil {
-				sess.MarkMessage(cm.cm, "")
-			} else {
-				off := cm.offset
-				sess.MarkOffset(off.topic, off.partition, off.offset, "")
+			select {
+			case c.messages <- cm:
+			case <-c.ctx.Done():
+				return nil
+			}
+		}
+	}
+}
+
+func (ams *asyncMessageSource) processAcks(ctx context.Context, messages <-chan *consumerMessage, acks <-chan substrate.Message) error {
+	var forAcking []*consumerMessage
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case m := <-messages:
+			forAcking = append(forAcking, m)
+		case ack := <-acks:
+			switch {
+			case len(forAcking) == 0:
+				return substrate.InvalidAckError{
+					Acked:    ack,
+					Expected: nil,
+				}
+			case ack != forAcking[0]:
+				return substrate.InvalidAckError{
+					Acked:    ack,
+					Expected: forAcking[0],
+				}
+			default:
+				forAcking[0].ack()
+				forAcking = forAcking[1:]
 			}
 		}
 	}
 }
 
 func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
-	c, err := sarama.NewConsumerGroupFromClient(ams.consumerGroup, ams.client)
-	if err != nil {
-		return err
-	}
+	rg, ctx := rungroup.New(ctx)
+	toAck := make(chan *consumerMessage)
 
-	defer func() {
-		_ = c.Close()
-	}()
+	rg.Go(func() error {
+		return ams.processAcks(ctx, toAck, acks)
+	})
+	rg.Go(func() error {
+		return ams.consumerGroup.Consume(ctx, []string{ams.topic}, &consumerGroupHandler{
+			ctx:      ctx,
+			messages: messages,
+			toAck:    toAck,
+		})
+	})
 
-	h := &consumerGroupHandler{ctx, messages, acks}
-	return c.Consume(ctx, []string{ams.topic}, h)
-
+	return rg.Wait()
 }
 
 func (ams *asyncMessageSource) Status() (*substrate.Status, error) {
 	return status(ams.client, ams.topic)
 }
 
-func (ams *asyncMessageSource) Close() error {
-	return ams.client.Close()
+func (ams *asyncMessageSource) Close() (err error) {
+	for _, closer := range []io.Closer{ams.consumerGroup, ams.client} {
+		err = multierror.Append(err, closer.Close()).ErrorOrNil()
+	}
+	return err
 }

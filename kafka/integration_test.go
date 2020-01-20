@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	cluster "github.com/bsm/sarama-cluster"
+	"github.com/Shopify/sarama"
 	"github.com/google/uuid"
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/internal/testshared"
@@ -41,6 +41,7 @@ func (ks *testServer) NewConsumer(topic string, groupID string) substrate.AsyncM
 		ConsumerGroup: groupID,
 		Topic:         topic,
 		Offset:        OffsetOldest,
+		Version:       "2.4.0",
 	})
 
 	if err != nil {
@@ -86,7 +87,7 @@ func runServer() (*testServer, error) {
 		"-p", "9092:9092",
 		"--env", "ADVERTISED_HOST=127.0.0.1",
 		"--env", "ADVERTISED_PORT=9092",
-		"spotify/kafka",
+		"uwdev/docker-kafka",
 	)
 	if err := cmd.Run(); err != nil {
 		return nil, err
@@ -127,8 +128,8 @@ loop:
 	// wait for cluster to be ready
 loop2:
 	for {
-		config := cluster.NewConfig()
-		c, err := cluster.NewConsumer([]string{fmt.Sprintf("localhost:%d", port)}, generateID(), []string{ /* no topics */ }, config)
+		config := sarama.NewConfig()
+		c, err := sarama.NewConsumer([]string{fmt.Sprintf("localhost:%d", port)}, config)
 		if err == nil {
 			c.Close()
 			break loop2
