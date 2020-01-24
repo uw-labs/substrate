@@ -29,7 +29,7 @@ type DiscardableMessage interface {
 // for getting partition keys.
 type AnnotatedMessage interface {
 	Message
-	OriginalMessage() Message
+	Original() Message
 }
 
 // AsyncMessageSink represents a message sink that allows publishing messages,

@@ -10,6 +10,6 @@ func AnnotatedMessage(msg substrate.Message) substrate.Message {
 		if !ok {
 			return msg
 		}
-		msg = aMsg.OriginalMessage()
+		msg = aMsg.Original()
 	}
 }

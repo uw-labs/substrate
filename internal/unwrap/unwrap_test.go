@@ -45,6 +45,6 @@ func (msg *annotatedMessage) Data() []byte {
 	return msg.original.Data()
 }
 
-func (msg *annotatedMessage) OriginalMessage() substrate.Message {
+func (msg *annotatedMessage) Original() substrate.Message {
 	return msg.original
 }
