@@ -23,6 +23,15 @@ type DiscardableMessage interface {
 	DiscardPayload()
 }
 
+// AnnotatedMessage is an interface implemented by messages used by sink wrappers,
+// in particular the synchronous sink adapter. This allows the backends to retrieve
+// the original message the user sent when invoking user provided callbacks for example
+// for getting partition keys.
+type AnnotatedMessage interface {
+	Message
+	OriginalMessage() Message
+}
+
 // AsyncMessageSink represents a message sink that allows publishing messages,
 // and multiple messages can be in flight before any acks are recieved,
 // depending upon the configuration of the underlying message sink.
