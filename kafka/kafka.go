@@ -97,7 +97,7 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 
 			if ams.KeyFunc != nil {
 				// Provide original user message to the partition key function.
-				unwrappedMsg := unwrap.AnnotatedMessage(m)
+				unwrappedMsg := unwrap.Unwrap(m)
 				message.Key = sarama.ByteEncoder(ams.KeyFunc(unwrappedMsg))
 			}
 

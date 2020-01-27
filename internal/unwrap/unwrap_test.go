@@ -9,7 +9,7 @@ import (
 	"github.com/uw-labs/substrate/internal/unwrap"
 )
 
-func TestAnnotatedMessage(t *testing.T) {
+func TestUnwrap(t *testing.T) {
 	originalMsg := &message{
 		data: []byte("data"),
 	}
@@ -23,7 +23,7 @@ func TestAnnotatedMessage(t *testing.T) {
 			},
 		},
 	}
-	unwrappedMsg := unwrap.AnnotatedMessage(wrappedMsg)
+	unwrappedMsg := unwrap.Unwrap(wrappedMsg)
 
 	require.Equal(t, originalMsg, unwrappedMsg)
 }
