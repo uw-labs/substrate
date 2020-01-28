@@ -9,6 +9,7 @@ import (
 	"github.com/Shopify/sarama"
 	cluster "github.com/bsm/sarama-cluster"
 	"github.com/uw-labs/substrate"
+	"github.com/uw-labs/substrate/internal/unwrap"
 )
 
 var (
@@ -95,7 +96,9 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 			message.Value = sarama.ByteEncoder(m.Data())
 
 			if ams.KeyFunc != nil {
-				message.Key = sarama.ByteEncoder(ams.KeyFunc(m))
+				// Provide original user message to the partition key function.
+				unwrappedMsg := unwrap.Unwrap(m)
+				message.Key = sarama.ByteEncoder(ams.KeyFunc(unwrappedMsg))
 			}
 
 			message.Metadata = m
