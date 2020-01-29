@@ -266,10 +266,8 @@ func (cm *consumerMessage) ack() {
 }
 
 type consumerGroupHandler struct {
-	ctx context.Context
-
-	messages chan<- substrate.Message
-	toAck    chan<- *consumerMessage
+	ctx   context.Context
+	toAck chan<- *consumerMessage
 }
 
 // Setup is run at the beginning of a new session, before ConsumeClaim.
@@ -286,9 +284,7 @@ func (c *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, cl
 	// This function can be called concurrently for multiple claims, so the code
 	// below, absent locking etc may seem wrong, but it's actually fine.
 	// Different partition claims can be processed concurrently, but we funnel
-	// them all into c.messages.  The caller puts all acks into c.acks and it
-	// doesn't matter which one of us processes the offset marking because they
-	// all work with the same session.
+	// them all into c.toAck, which is consumed and processed by a single goroutine.
 	for {
 		select {
 		case <-c.ctx.Done():
@@ -303,23 +299,23 @@ func (c *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, cl
 			case <-c.ctx.Done():
 				return nil
 			}
-			select {
-			case c.messages <- cm:
-			case <-c.ctx.Done():
-				return nil
-			}
 		}
 	}
 }
 
-func (ams *asyncMessageSource) processAcks(ctx context.Context, messages <-chan *consumerMessage, acks <-chan substrate.Message) error {
+func (ams *asyncMessageSource) processAcks(ctx context.Context, toClient chan<- substrate.Message, fromKafka <-chan *consumerMessage, acks <-chan substrate.Message) error {
 	var forAcking []*consumerMessage
 
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case m := <-messages:
+		case m := <-fromKafka:
+			select {
+			case toClient <- m:
+			case <-ctx.Done():
+				return nil
+			}
 			forAcking = append(forAcking, m)
 		case ack := <-acks:
 			switch {
@@ -346,13 +342,12 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 	toAck := make(chan *consumerMessage)
 
 	rg.Go(func() error {
-		return ams.processAcks(ctx, toAck, acks)
+		return ams.processAcks(ctx, messages, toAck, acks)
 	})
 	rg.Go(func() error {
 		return ams.consumerGroup.Consume(ctx, []string{ams.topic}, &consumerGroupHandler{
-			ctx:      ctx,
-			messages: messages,
-			toAck:    toAck,
+			ctx:   ctx,
+			toAck: toAck,
 		})
 	})
 
