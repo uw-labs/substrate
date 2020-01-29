@@ -306,32 +306,55 @@ func (c *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, cl
 func (ams *asyncMessageSource) processAcks(ctx context.Context, toClient chan<- substrate.Message, fromKafka <-chan *consumerMessage, acks <-chan substrate.Message) error {
 	var forAcking []*consumerMessage
 
+	processAck := func(ack substrate.Message) error {
+		switch {
+		case len(forAcking) == 0:
+			return substrate.InvalidAckError{
+				Acked:    ack,
+				Expected: nil,
+			}
+		case ack != forAcking[0]:
+			return substrate.InvalidAckError{
+				Acked:    ack,
+				Expected: forAcking[0],
+			}
+		default:
+			forAcking[0].ack()
+			forAcking = forAcking[1:]
+		}
+		return nil
+	}
+	processMessage := func(msg *consumerMessage) error {
+		for {
+			select {
+			case <-ctx.Done():
+				return context.Canceled
+			case toClient <- msg:
+				forAcking = append(forAcking, msg)
+				return nil // We have passed the message to the client, so we can exit this loop.
+			case ack := <-acks:
+				// Still process acks, so that we don't block the consumer acknowledging the message.
+				if err := processAck(ack); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case m := <-fromKafka:
-			select {
-			case toClient <- m:
-			case <-ctx.Done():
-				return nil
+		case msg := <-fromKafka:
+			if err := processMessage(msg); err != nil {
+				return err
 			}
-			forAcking = append(forAcking, m)
 		case ack := <-acks:
-			switch {
-			case len(forAcking) == 0:
-				return substrate.InvalidAckError{
-					Acked:    ack,
-					Expected: nil,
+			if err := processAck(ack); err != nil {
+				if err == context.Canceled {
+					return nil
 				}
-			case ack != forAcking[0]:
-				return substrate.InvalidAckError{
-					Acked:    ack,
-					Expected: forAcking[0],
-				}
-			default:
-				forAcking[0].ack()
-				forAcking = forAcking[1:]
+				return err
 			}
 		}
 	}
