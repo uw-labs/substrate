@@ -261,7 +261,10 @@ func (cm *consumerMessage) ack() {
 		cm.sess.MarkMessage(cm.cm, "")
 	} else {
 		off := cm.offset
-		cm.sess.MarkOffset(off.topic, off.partition, off.offset, "")
+		// MarkOffset marks the next message to consume, so we need to add 1
+		// to the offset to mark this message as consumed. Note that the bsm cluster
+		// did this when committing offsets, so that's why it worked without this before.
+		cm.sess.MarkOffset(off.topic, off.partition, off.offset+1, "")
 	}
 }
 
