@@ -2,14 +2,14 @@ package kafka
 
 import (
 	"context"
+	"io"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/Shopify/sarama"
-	cluster "github.com/bsm/sarama-cluster"
+	"github.com/hashicorp/go-multierror"
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/internal/unwrap"
+	"github.com/uw-labs/sync/rungroup"
 )
 
 var (
@@ -165,7 +165,7 @@ type AsyncMessageSourceConfig struct {
 	Version                  string
 }
 
-func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*cluster.Config, error) {
+func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*sarama.Config, error) {
 	offset := OffsetNewest
 	if ams.Offset != 0 {
 		offset = ams.Offset
@@ -175,7 +175,7 @@ func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*cluster.Confi
 		mrf = ams.MetadataRefreshFrequency
 	}
 
-	config := cluster.NewConfig()
+	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
 	config.Consumer.Offsets.Initial = offset
 	config.Metadata.RefreshFrequency = mrf
@@ -198,21 +198,26 @@ func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSo
 		return nil, err
 	}
 
-	client, err := cluster.NewClient(c.Brokers, config)
+	client, err := sarama.NewClient(c.Brokers, config)
 	if err != nil {
+		return nil, err
+	}
+	consumerGroup, err := sarama.NewConsumerGroupFromClient(c.ConsumerGroup, client)
+	if err != nil {
+		_ = client.Close()
 		return nil, err
 	}
 
 	return &asyncMessageSource{
 		client:        client,
-		consumerGroup: c.ConsumerGroup,
+		consumerGroup: consumerGroup,
 		topic:         c.Topic,
 	}, nil
 }
 
 type asyncMessageSource struct {
-	client        *cluster.Client
-	consumerGroup string
+	client        sarama.Client
+	consumerGroup sarama.ConsumerGroup
 	topic         string
 }
 
@@ -250,91 +255,165 @@ func (cm *consumerMessage) DiscardPayload() {
 	cm.cm = nil
 }
 
-func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
-
-	c, err := cluster.NewConsumerFromClient(ams.client, ams.consumerGroup, []string{ams.topic})
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		_ = c.Close()
-	}()
-
-	toAck := make(chan *consumerMessage)
-	eg, ctx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		return ams.passMessagesToClient(ctx, c.Messages(), messages, toAck)
-	})
-	eg.Go(func() error {
-		return ams.passAcksToKafka(ctx, c, acks, toAck)
-	})
-
-	return eg.Wait()
+type consumerGroupHandler struct {
+	ctx    context.Context
+	toAck  chan<- *consumerMessage
+	sessCh chan<- sarama.ConsumerGroupSession
 }
 
-func (ams *asyncMessageSource) passMessagesToClient(ctx context.Context, fromKafka <-chan *sarama.ConsumerMessage, messages chan<- substrate.Message, toAck chan<- *consumerMessage) error {
+// Setup is run at the beginning of a new session, before ConsumeClaim.
+func (c *consumerGroupHandler) Setup(sess sarama.ConsumerGroupSession) error {
+	// send session to ack processor, the channel is buffered, so this won't block
+	c.sessCh <- sess
+	return nil
+}
+
+// Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
+// but before the offsets are committed for the very last time.
+func (c *consumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
+
+// ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
+// Once the Messages() channel is closed, the Handler must finish its processing
+// loop and exit.
+func (c *consumerGroupHandler) ConsumeClaim(_ sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+	// This function can be called concurrently for multiple claims, so the code
+	// below, absent locking etc may seem wrong, but it's actually fine.
+	// Different partition claims can be processed concurrently, but we funnel
+	// them all into c.toAck, which is consumed and processed by a single goroutine.
+	for {
+		select {
+		case <-c.ctx.Done():
+			return nil
+		case m, ok := <-claim.Messages():
+			if !ok {
+				return nil
+			}
+			cm := &consumerMessage{cm: m}
+			select {
+			case c.toAck <- cm:
+			case <-c.ctx.Done():
+				return nil
+			}
+		}
+	}
+}
+
+type kafkaAcksProcessor struct {
+	toClient  chan<- substrate.Message
+	fromKafka <-chan *consumerMessage
+	acks      <-chan substrate.Message
+	sessCh    <-chan sarama.ConsumerGroupSession
+
+	sess      sarama.ConsumerGroupSession
+	forAcking []*consumerMessage
+}
+
+func (ap *kafkaAcksProcessor) run(ctx context.Context) error {
+	// First set session, so that we can acknowledge messages.
+	select {
+	case <-ctx.Done():
+		return nil
+	case ap.sess = <-ap.sessCh:
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case msg := <-fromKafka:
-			message := &consumerMessage{cm: msg}
-
-			select {
-			case <-ctx.Done():
-				return nil
-			case toAck <- message:
+		case msg := <-ap.fromKafka:
+			if err := ap.processMessage(ctx, msg); err != nil {
+				if err == context.Canceled {
+					// This error is returned when a context cancellation is encountered
+					// before the message was sent to the client so, we just return nil,
+					// as we do in other context cancellation cases.
+					return nil
+				}
+				return err
 			}
-			select {
-			case <-ctx.Done():
-				return nil
-			case messages <- message:
+		case ack := <-ap.acks:
+			if err := ap.processAck(ack); err != nil {
+				return err
 			}
 		}
 	}
 }
 
-func (ams *asyncMessageSource) passAcksToKafka(ctx context.Context, c *cluster.Consumer, acks <-chan substrate.Message, toAck <-chan *consumerMessage) error {
-	var forAcking []*consumerMessage
-
+func (ap *kafkaAcksProcessor) processMessage(ctx context.Context, msg *consumerMessage) error {
 	for {
 		select {
-		case msg := <-toAck:
-			forAcking = append(forAcking, msg)
-		case ack := <-acks:
-			switch {
-			case len(forAcking) == 0:
-				return substrate.InvalidAckError{
-					Acked:    ack,
-					Expected: nil,
-				}
-			case ack != forAcking[0]:
-				return substrate.InvalidAckError{
-					Acked:    ack,
-					Expected: forAcking[0],
-				}
-			default:
-				if forAcking[0].offset != nil {
-					off := forAcking[0].offset
-					c.MarkPartitionOffset(off.topic, off.partition, off.offset, "")
-				} else {
-					c.MarkOffset(forAcking[0].cm, "")
-				}
-				forAcking = forAcking[1:]
-			}
-		case err := <-c.Errors():
-			return err
 		case <-ctx.Done():
-			return c.Close()
+			return context.Canceled
+		case ap.toClient <- msg:
+			ap.forAcking = append(ap.forAcking, msg)
+			return nil // We have passed the message to the client, so we can exit this loop.
+		case ack := <-ap.acks:
+			// Still process acks, so that we don't block the consumer acknowledging the message.
+			if err := ap.processAck(ack); err != nil {
+				return err
+			}
 		}
 	}
+}
+
+func (ap *kafkaAcksProcessor) processAck(ack substrate.Message) error {
+	switch {
+	case len(ap.forAcking) == 0:
+		return substrate.InvalidAckError{
+			Acked:    ack,
+			Expected: nil,
+		}
+	case ack != ap.forAcking[0]:
+		return substrate.InvalidAckError{
+			Acked:    ack,
+			Expected: ap.forAcking[0],
+		}
+	default:
+		if ap.forAcking[0].cm != nil {
+			ap.sess.MarkMessage(ap.forAcking[0].cm, "")
+		} else {
+			off := ap.forAcking[0].offset
+			// MarkOffset marks the next message to consume, so we need to add 1
+			// to the offset to mark this message as consumed. Note that the bsm cluster
+			// did this when committing offsets, so that's why it worked without this before.
+			ap.sess.MarkOffset(off.topic, off.partition, off.offset+1, "")
+		}
+		ap.forAcking = ap.forAcking[1:]
+	}
+	return nil
+}
+
+func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
+	rg, ctx := rungroup.New(ctx)
+	toAck := make(chan *consumerMessage)
+	sessCh := make(chan sarama.ConsumerGroupSession, 1)
+
+	rg.Go(func() error {
+		ap := &kafkaAcksProcessor{
+			toClient:  messages,
+			fromKafka: toAck,
+			acks:      acks,
+			sessCh:    sessCh,
+		}
+		return ap.run(ctx)
+	})
+	rg.Go(func() error {
+		return ams.consumerGroup.Consume(ctx, []string{ams.topic}, &consumerGroupHandler{
+			ctx:    ctx,
+			toAck:  toAck,
+			sessCh: sessCh,
+		})
+	})
+
+	return rg.Wait()
 }
 
 func (ams *asyncMessageSource) Status() (*substrate.Status, error) {
 	return status(ams.client, ams.topic)
 }
 
-func (ams *asyncMessageSource) Close() error {
-	return ams.client.Close()
+func (ams *asyncMessageSource) Close() (err error) {
+	for _, closer := range []io.Closer{ams.consumerGroup, ams.client} {
+		err = multierror.Append(err, closer.Close()).ErrorOrNil()
+	}
+	return err
 }

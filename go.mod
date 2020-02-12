@@ -3,13 +3,12 @@ module github.com/uw-labs/substrate
 go 1.13
 
 require (
-	github.com/Shopify/sarama v1.24.1
+	github.com/Shopify/sarama v1.25.0
 	github.com/Shopify/toxiproxy v2.1.4+incompatible
 	github.com/aws/aws-sdk-go v1.25.23 // indirect
-	github.com/bsm/sarama-cluster v2.1.15+incompatible
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/google/uuid v1.1.1
-	github.com/klauspost/cpuid v1.2.1 // indirect
+	github.com/hashicorp/go-multierror v1.0.0
 	github.com/nats-io/nats-streaming-server v0.16.2
 	github.com/nats-io/nats.go v1.9.0
 	github.com/nats-io/stan.go v0.5.0
