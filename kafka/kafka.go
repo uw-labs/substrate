@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/Shopify/sarama"
@@ -261,6 +262,7 @@ type consumerGroupHandler struct {
 
 // Setup is run at the beginning of a new session, before ConsumeClaim.
 func (c *consumerGroupHandler) Setup(sess sarama.ConsumerGroupSession) error {
+	log.Println("Setup:", sess.MemberID(), sess.Claims())
 	// send session to ack processor, the channel is buffered, so this won't block
 	c.sessCh <- sess
 	return nil
@@ -268,7 +270,8 @@ func (c *consumerGroupHandler) Setup(sess sarama.ConsumerGroupSession) error {
 
 // Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
 // but before the offsets are committed for the very last time.
-func (c *consumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error {
+func (c *consumerGroupHandler) Cleanup(sess sarama.ConsumerGroupSession) error {
+	log.Println("Cleanup:", sess.MemberID(), sess.Claims())
 	return nil
 }
 
@@ -408,6 +411,7 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 }
 
 func (ams *asyncMessageSource) consumeMessages(ctx context.Context, acksProcessor *kafkaAcksProcessor, sessCh chan<- sarama.ConsumerGroupSession, toAck chan<- *consumerMessage) error {
+	log.Println("Start")
 	var closedDueToRebalance bool
 
 	consumerGroup, err := sarama.NewConsumerGroupFromClient(ams.consumerGroup, ams.client)
@@ -431,11 +435,13 @@ func (ams *asyncMessageSource) consumeMessages(ctx context.Context, acksProcesso
 			select {
 			case <-rCtx.Done():
 				err := consumerGroup.Close()
+				log.Println("Close Err:", err)
 				if ce, ok := err.(*sarama.ConsumerError); err == sarama.ErrRebalanceInProgress || ok && ce.Err == errPartitionEnd {
 					closedDueToRebalance = true
 				}
 				return err
 			case err := <-consumerGroup.Errors():
+				log.Println("Err:", err)
 				if ce, ok := err.(*sarama.ConsumerError); err == sarama.ErrRebalanceInProgress || ok && ce.Err == errPartitionEnd {
 					closedDueToRebalance = true
 				}
@@ -447,8 +453,10 @@ func (ams *asyncMessageSource) consumeMessages(ctx context.Context, acksProcesso
 		return err
 	}
 	if closedDueToRebalance {
+		log.Println("Rebalance restart.")
 		return ams.consumeMessages(ctx, acksProcessor, sessCh, toAck)
 	}
+	log.Println("Exit.")
 	return nil
 }
 
