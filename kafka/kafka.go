@@ -224,7 +224,8 @@ type asyncMessageSource struct {
 type consumerMessage struct {
 	cm *sarama.ConsumerMessage
 
-	offset *struct {
+	discard bool
+	offset  *struct {
 		topic     string
 		partition int32
 		offset    int64
@@ -256,21 +257,32 @@ func (cm *consumerMessage) DiscardPayload() {
 }
 
 type consumerGroupHandler struct {
-	ctx    context.Context
-	toAck  chan<- *consumerMessage
-	sessCh chan<- sarama.ConsumerGroupSession
+	ctx         context.Context
+	toAck       chan<- *consumerMessage
+	sessCh      chan<- sarama.ConsumerGroupSession
+	rebalanceCh chan<- struct{}
 }
 
 // Setup is run at the beginning of a new session, before ConsumeClaim.
 func (c *consumerGroupHandler) Setup(sess sarama.ConsumerGroupSession) error {
-	// send session to ack processor, the channel is buffered, so this won't block
-	c.sessCh <- sess
+	// send session to the ack processor
+	select {
+	case <-c.ctx.Done():
+	case c.sessCh <- sess:
+	}
 	return nil
 }
 
 // Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
 // but before the offsets are committed for the very last time.
-func (c *consumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
+func (c *consumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error {
+	// signal to ack processor that rebalance might be happening
+	select {
+	case <-c.ctx.Done():
+	case c.rebalanceCh <- struct{}{}:
+	}
+	return nil
+}
 
 // ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
 // Once the Messages() channel is closed, the Handler must finish its processing
@@ -299,10 +311,11 @@ func (c *consumerGroupHandler) ConsumeClaim(_ sarama.ConsumerGroupSession, claim
 }
 
 type kafkaAcksProcessor struct {
-	toClient  chan<- substrate.Message
-	fromKafka <-chan *consumerMessage
-	acks      <-chan substrate.Message
-	sessCh    <-chan sarama.ConsumerGroupSession
+	toClient    chan<- substrate.Message
+	fromKafka   <-chan *consumerMessage
+	acks        <-chan substrate.Message
+	sessCh      <-chan sarama.ConsumerGroupSession
+	rebalanceCh <-chan struct{}
 
 	sess      sarama.ConsumerGroupSession
 	forAcking []*consumerMessage
@@ -320,6 +333,17 @@ func (ap *kafkaAcksProcessor) run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
+		case <-ap.rebalanceCh:
+			// Mark all pending messages to be discarded, as rebalance happened.
+			for _, msg := range ap.forAcking {
+				msg.discard = true
+			}
+			// Wait for the new session.
+			select {
+			case <-ctx.Done():
+				return nil
+			case ap.sess = <-ap.sessCh:
+			}
 		case msg := <-ap.fromKafka:
 			if err := ap.processMessage(ctx, msg); err != nil {
 				if err == context.Canceled {
@@ -343,6 +367,17 @@ func (ap *kafkaAcksProcessor) processMessage(ctx context.Context, msg *consumerM
 		select {
 		case <-ctx.Done():
 			return context.Canceled
+		case <-ap.rebalanceCh:
+			// Mark all pending messages to be discarded, as rebalance happened.
+			for _, msg := range ap.forAcking {
+				msg.discard = true
+			}
+			// Wait for the new session.
+			select {
+			case <-ctx.Done():
+			case ap.sess = <-ap.sessCh:
+			}
+			return nil // We can return immediately as the current message can be discarded.
 		case ap.toClient <- msg:
 			ap.forAcking = append(ap.forAcking, msg)
 			return nil // We have passed the message to the client, so we can exit this loop.
@@ -368,6 +403,10 @@ func (ap *kafkaAcksProcessor) processAck(ack substrate.Message) error {
 			Expected: ap.forAcking[0],
 		}
 	default:
+		if ap.forAcking[0].discard {
+			// Discard pending message that was consumed before a rebalance.
+			return nil
+		}
 		if ap.forAcking[0].cm != nil {
 			ap.sess.MarkMessage(ap.forAcking[0].cm, "")
 		} else {
@@ -385,23 +424,32 @@ func (ap *kafkaAcksProcessor) processAck(ack substrate.Message) error {
 func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
 	rg, ctx := rungroup.New(ctx)
 	toAck := make(chan *consumerMessage)
-	sessCh := make(chan sarama.ConsumerGroupSession, 1)
+	sessCh := make(chan sarama.ConsumerGroupSession)
+	rebalanceCh := make(chan struct{})
 
 	rg.Go(func() error {
 		ap := &kafkaAcksProcessor{
-			toClient:  messages,
-			fromKafka: toAck,
-			acks:      acks,
-			sessCh:    sessCh,
+			toClient:    messages,
+			fromKafka:   toAck,
+			acks:        acks,
+			sessCh:      sessCh,
+			rebalanceCh: rebalanceCh,
 		}
 		return ap.run(ctx)
 	})
 	rg.Go(func() error {
-		return ams.consumerGroup.Consume(ctx, []string{ams.topic}, &consumerGroupHandler{
-			ctx:    ctx,
-			toAck:  toAck,
-			sessCh: sessCh,
-		})
+		// We need to run consume in infinite loop to handle rebalances.
+		for {
+			err := ams.consumerGroup.Consume(ctx, []string{ams.topic}, &consumerGroupHandler{
+				ctx:         ctx,
+				toAck:       toAck,
+				sessCh:      sessCh,
+				rebalanceCh: rebalanceCh,
+			})
+			if err != nil || ctx.Err() != nil {
+				return err
+			}
+		}
 	})
 
 	return rg.Wait()
