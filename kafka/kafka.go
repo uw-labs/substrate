@@ -166,6 +166,7 @@ type AsyncMessageSourceConfig struct {
 	MetadataRefreshFrequency time.Duration
 	OffsetsRetention         time.Duration
 	Version                  string
+	Name                     string
 }
 
 func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*sarama.Config, error) {
@@ -210,6 +211,7 @@ func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSo
 		client:        client,
 		consumerGroup: c.ConsumerGroup,
 		topic:         c.Topic,
+		name:          c.Name,
 	}, nil
 }
 
@@ -217,6 +219,7 @@ type asyncMessageSource struct {
 	client        sarama.Client
 	consumerGroup string
 	topic         string
+	name          string
 }
 
 type consumerMessage struct {
@@ -256,13 +259,14 @@ func (cm *consumerMessage) DiscardPayload() {
 
 type consumerGroupHandler struct {
 	ctx    context.Context
+	name   string
 	toAck  chan<- *consumerMessage
 	sessCh chan<- sarama.ConsumerGroupSession
 }
 
 // Setup is run at the beginning of a new session, before ConsumeClaim.
 func (c *consumerGroupHandler) Setup(sess sarama.ConsumerGroupSession) error {
-	log.Println("Setup:", sess.MemberID(), sess.Claims())
+	log.Println(c.name, "setup:", sess.MemberID(), sess.Claims())
 	// send session to ack processor, the channel is buffered, so this won't block
 	c.sessCh <- sess
 	return nil
@@ -271,7 +275,7 @@ func (c *consumerGroupHandler) Setup(sess sarama.ConsumerGroupSession) error {
 // Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
 // but before the offsets are committed for the very last time.
 func (c *consumerGroupHandler) Cleanup(sess sarama.ConsumerGroupSession) error {
-	log.Println("Cleanup:", sess.MemberID(), sess.Claims())
+	log.Println(c.name, "cleanup:", sess.MemberID(), sess.Claims())
 	return nil
 }
 
@@ -411,7 +415,7 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 }
 
 func (ams *asyncMessageSource) consumeMessages(ctx context.Context, acksProcessor *kafkaAcksProcessor, sessCh chan<- sarama.ConsumerGroupSession, toAck chan<- *consumerMessage) error {
-	log.Println("Start")
+	log.Println(ams.name, "start")
 	var closedDueToRebalance bool
 
 	consumerGroup, err := sarama.NewConsumerGroupFromClient(ams.consumerGroup, ams.client)
@@ -424,24 +428,30 @@ func (ams *asyncMessageSource) consumeMessages(ctx context.Context, acksProcesso
 		return acksProcessor.run(rCtx)
 	})
 	rg.Go(func() error {
-		return consumerGroup.Consume(rCtx, []string{ams.topic}, &consumerGroupHandler{
-			ctx:    rCtx,
-			toAck:  toAck,
-			sessCh: sessCh,
-		})
+		for {
+			if err := consumerGroup.Consume(rCtx, []string{ams.topic}, &consumerGroupHandler{
+				ctx:    rCtx,
+				toAck:  toAck,
+				sessCh: sessCh,
+				name:   ams.name,
+			}); err != nil {
+				return err
+			}
+		}
 	})
 	rg.Go(func() error {
 		for {
 			select {
 			case <-rCtx.Done():
 				err := consumerGroup.Close()
-				log.Println("Close Err:", err)
+				log.Println(ams.name, "Close Err:", err)
 				if ce, ok := err.(*sarama.ConsumerError); err == sarama.ErrRebalanceInProgress || ok && ce.Err == errPartitionEnd {
 					closedDueToRebalance = true
+					return nil
 				}
 				return err
 			case err := <-consumerGroup.Errors():
-				log.Println("Err:", err)
+				log.Println(ams.name, "Err:", err)
 				if ce, ok := err.(*sarama.ConsumerError); err == sarama.ErrRebalanceInProgress || ok && ce.Err == errPartitionEnd {
 					closedDueToRebalance = true
 				}
@@ -452,11 +462,11 @@ func (ams *asyncMessageSource) consumeMessages(ctx context.Context, acksProcesso
 	if err := rg.Wait(); err != nil || ctx.Err() != nil {
 		return err
 	}
-	if closedDueToRebalance {
-		log.Println("Rebalance restart.")
+	if closedDueToRebalance || ctx.Err() == nil {
+		log.Println(ams.name, "Rebalance restart.")
 		return ams.consumeMessages(ctx, acksProcessor, sessCh, toAck)
 	}
-	log.Println("Exit.")
+	log.Println(ams.name, "Exit.")
 	return nil
 }
 

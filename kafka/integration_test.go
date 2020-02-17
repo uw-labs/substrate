@@ -58,15 +58,19 @@ func (ks *testServer) testRebalance(t *testing.T) {
 	}, false))
 
 	var expectedMsgs []string
-	c1Err, c2Err := make(chan error), make(chan error)
+	c1Err, c2Err := make(chan error, 1), make(chan error, 1)
 	c1Msgs, c2Msgs := map[string]bool{}, map[string]bool{}
+
 	c1Ctx, c1Cancel := context.WithCancel(ctx)
-	log.Println("Starting c1.")
-	c1 := substrate.NewSynchronousMessageSource(ks.NewConsumer(topic, consumerGroup))
-	defer func() { require.NoError(t, c1.Close()) }()
 	go func() {
+		log.Println("Starting c1.")
+		c1 := substrate.NewSynchronousMessageSource(ks.NewConsumer(topic, consumerGroup, "c1"))
+		defer fmt.Println("c1 terminated")
+		defer func() { require.NoError(t, c1.Close()) }()
+
 		c1Err <- c1.ConsumeMessages(c1Ctx, func(_ context.Context, msg substrate.Message) error {
 			c1Msgs[string(msg.Data())] = true
+			fmt.Println("c1 read:", string(msg.Data()))
 			return nil
 		})
 	}()
@@ -80,13 +84,16 @@ func (ks *testServer) testRebalance(t *testing.T) {
 	}
 	time.Sleep(time.Second * 10) // Sleep to read some messages.
 
-	log.Println("Starting c2.")
 	c2Ctx, c2Cancel := context.WithCancel(ctx)
-	c2 := substrate.NewSynchronousMessageSource(ks.NewConsumer(topic, consumerGroup))
-	defer func() { require.NoError(t, c2.Close()) }()
 	go func() {
+		log.Println("Starting c2.")
+		c2 := substrate.NewSynchronousMessageSource(ks.NewConsumer(topic, consumerGroup, "c2"))
+		defer fmt.Println("c2 terminated")
+		defer func() { require.NoError(t, c2.Close()) }()
+
 		c2Err <- c2.ConsumeMessages(c2Ctx, func(_ context.Context, msg substrate.Message) error {
 			c2Msgs[string(msg.Data())] = true
+			fmt.Println("c2 read:", string(msg.Data()))
 			return nil
 		})
 	}()
@@ -97,7 +104,7 @@ func (ks *testServer) testRebalance(t *testing.T) {
 		expectedMsgs = append(expectedMsgs, payload)
 		require.NoError(t, p.PublishMessage(ctx, &message{data: []byte(payload)}))
 	}
-	time.Sleep(time.Second * 20)
+	time.Sleep(time.Second * 10)
 	log.Println("Shutting down c1.")
 	c1Cancel()
 	time.Sleep(time.Second * 20) // Sleep to wait for rebalance.
@@ -126,13 +133,14 @@ func (ks *testServer) testRebalance(t *testing.T) {
 	require.ElementsMatch(t, expectedMsgs, actualMsgs)
 }
 
-func (ks *testServer) NewConsumer(topic string, groupID string) substrate.AsyncMessageSource {
+func (ks *testServer) NewConsumer(topic string, groupID, name string) substrate.AsyncMessageSource {
 	s, err := NewAsyncMessageSource(AsyncMessageSourceConfig{
 		Brokers:       ks.brokers(),
 		ConsumerGroup: groupID,
 		Topic:         topic,
 		Offset:        OffsetOldest,
 		Version:       "2.4.0",
+		Name:          name,
 	})
 
 	if err != nil {
