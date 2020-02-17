@@ -34,8 +34,10 @@ func runServer() (*testServer, error) {
 		panic(err)
 	}
 
+	ss, _ := straw.Open("file:///")
+
 	return &testServer{
-		&straw.OsStreamStore{},
+		ss,
 		dir,
 	}, nil
 }
