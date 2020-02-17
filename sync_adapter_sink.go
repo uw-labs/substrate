@@ -165,3 +165,7 @@ type seqMessage struct {
 	seq int
 	Message
 }
+
+func (msg seqMessage) Original() Message {
+	return msg.Message
+}
