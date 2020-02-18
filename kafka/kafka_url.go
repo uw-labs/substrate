@@ -16,22 +16,28 @@ func init() {
 }
 
 func newKafkaSink(u *url.URL) (substrate.AsyncMessageSink, error) {
-	q := u.Query()
-
-	topic := strings.Trim(u.Path, "/")
-
-	if strings.Contains(topic, "/") {
-		return nil, fmt.Errorf("error parsing topic from url (%s)", topic)
+	conf, err := NewAsyncMessageSinkConfig(u)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new message sink config %s", err.Error())
 	}
 
+	return kafkaSinker(conf)
+}
+
+//NewAsyncMessageSinkConfig allows building config and further modifying if required with funcKey, etc.
+func NewAsyncMessageSinkConfig(u *url.URL) (AsyncMessageSinkConfig, error) {
+	q := u.Query()
+	topic := strings.Trim(u.Path, "/")
+	if strings.Contains(topic, "/") {
+		return AsyncMessageSinkConfig{}, fmt.Errorf("error parsing topic from url (%s)", topic)
+	}
 	conf := AsyncMessageSinkConfig{
 		Brokers: []string{u.Host},
 		Topic:   topic,
 	}
-
 	conf.Brokers = append(conf.Brokers, q["broker"]...)
 
-	return kafkaSinker(conf)
+	return conf, nil
 }
 
 var kafkaSinker = NewAsyncMessageSink
