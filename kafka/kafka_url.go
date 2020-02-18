@@ -31,6 +31,8 @@ func newKafkaSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 
 	conf.Brokers = append(conf.Brokers, q["broker"]...)
 
+	conf.Version := q.Get("version")
+
 	return kafkaSinker(conf)
 }
 
@@ -72,6 +74,8 @@ func newKafkaSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 		conf.MetadataRefreshFrequency = d
 	}
 
+	conf.Version := q.Get("version")
+	
 	return kafkaSourcer(conf)
 }
 

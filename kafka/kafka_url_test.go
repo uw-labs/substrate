@@ -46,11 +46,21 @@ func TestKafkaSink(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
-			name:  "everything",
+			name:  "port-and-brokers",
 			input: "kafka://localhost:123/t1/?broker=localhost:234&broker=localhost:345",
 			expected: AsyncMessageSinkConfig{
 				Brokers: []string{"localhost:123", "localhost:234", "localhost:345"},
 				Topic:   "t1",
+			},
+			expectedErr: nil,
+		},
+		{
+			name:  "everything",
+			input: "kafka://localhost:123/t1/?broker=localhost:234&broker=localhost:345&version=2.2.0.0",
+			expected: AsyncMessageSinkConfig{
+				Brokers: []string{"localhost:123", "localhost:234", "localhost:345"},
+				Topic:   "t1",
+				Version: "2.2.0.0",
 			},
 			expectedErr: nil,
 		},
@@ -113,13 +123,14 @@ func TestKafkaSource(t *testing.T) {
 		},
 		{
 			name:  "everything",
-			input: "kafka://localhost:123/t1/?offset=newest&consumer-group=g1&metadata-refresh=2s&broker=localhost:234&broker=localhost:345",
+			input: "kafka://localhost:123/t1/?offset=newest&consumer-group=g1&metadata-refresh=2s&broker=localhost:234&broker=localhost:345&version=0.10.2.0",
 			expected: AsyncMessageSourceConfig{
 				Brokers:                  []string{"localhost:123", "localhost:234", "localhost:345"},
 				ConsumerGroup:            "g1",
 				MetadataRefreshFrequency: 2 * time.Second,
 				Offset:                   sarama.OffsetNewest,
 				Topic:                    "t1",
+				Version:                  "0.10.2.0",
 			},
 			expectedErr: nil,
 		},
