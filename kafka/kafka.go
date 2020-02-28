@@ -402,11 +402,11 @@ func (ap *kafkaAcksProcessor) processAck(ack substrate.Message) error {
 			Acked:    ack,
 			Expected: ap.forAcking[0],
 		}
+	case ap.forAcking[0].discard:
+		// Discard pending message that was consumed before a rebalance.
+		ap.forAcking = ap.forAcking[1:]
 	default:
-		if ap.forAcking[0].discard {
-			// Discard pending message that was consumed before a rebalance.
-			return nil
-		}
+		// Acknowledge the message.
 		if ap.forAcking[0].cm != nil {
 			ap.sess.MarkMessage(ap.forAcking[0].cm, "")
 		} else {
