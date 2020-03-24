@@ -24,6 +24,7 @@ const (
 	OffsetNewest int64 = sarama.OffsetNewest
 
 	defaultMetadataRefreshFrequency = 10 * time.Minute
+	defaultConsumerSessionTimeout   = 10 * time.Second
 )
 
 type AsyncMessageSinkConfig struct {
@@ -162,6 +163,7 @@ type AsyncMessageSourceConfig struct {
 	Offset                   int64
 	MetadataRefreshFrequency time.Duration
 	OffsetsRetention         time.Duration
+	SessionTimeout           time.Duration
 	Version                  string
 }
 
@@ -174,11 +176,16 @@ func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*sarama.Config
 	if ams.MetadataRefreshFrequency > 0 {
 		mrf = ams.MetadataRefreshFrequency
 	}
+	st := defaultConsumerSessionTimeout
+	if ams.SessionTimeout != 0 {
+		st = ams.SessionTimeout
+	}
 
 	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
 	config.Consumer.Offsets.Initial = offset
 	config.Metadata.RefreshFrequency = mrf
+	config.Consumer.Group.Session.Timeout = st
 	config.Consumer.Offsets.Retention = ams.OffsetsRetention
 
 	if ams.Version != "" {
