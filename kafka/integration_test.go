@@ -1,31 +1,45 @@
 package kafka
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"os/exec"
-	"strconv"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"github.com/uw-labs/podrick"
+	_ "github.com/uw-labs/podrick/runtimes/docker"
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/internal/testshared"
 )
 
 func TestAll(t *testing.T) {
+	ctr, err := podrick.StartContainer(context.Background(), "uwdev/docker-kafka", "latest", "9092",
+		podrick.WithEnv([]string{
+			"ADVERTISED_HOST=127.0.0.1",
+			"ADVERTISED_PORT=9092",
+		}),
+		podrick.WithLivenessCheck(func(address string) error {
+			fmt.Println("liveness check", address)
+			c, err := sarama.NewClient([]string{address}, sarama.NewConfig())
+			if err != nil {
+				fmt.Println(err)
+				return err
+			}
+			return c.Close()
+		}),
+	)
+	require.NoError(t, err)
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		defer cancel()
+		require.NoError(t, ctr.Close(ctx))
+	}()
 
-	k, err := runServer()
-	if err != nil {
-		t.Fatal(err)
+	k := &testServer{
+		address: ctr.Address(),
 	}
-
-	defer k.Kill()
-
 	t.Run("Kafka Rebalance", func(t *testing.T) {
 		k.testRebalance(t)
 	})
@@ -33,12 +47,12 @@ func TestAll(t *testing.T) {
 }
 
 type testServer struct {
-	containerName string
-	port          int
+	address string
 }
 
 func (ks *testServer) brokers() []string {
-	return []string{fmt.Sprintf("127.0.0.1:%d", ks.port)}
+	fmt.Println(ks.address)
+	return []string{ks.address}
 }
 
 func (ks *testServer) testRebalance(t *testing.T) {
@@ -152,83 +166,6 @@ func (ks *testServer) NewProducer(topic string) substrate.AsyncMessageSink {
 }
 
 func (ks *testServer) TestEnd() {}
-
-func (ks *testServer) Kill() error {
-	cmd := exec.Command("docker", "rm", "-f", ks.containerName)
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("error removing container: %s", out)
-	}
-
-	return nil
-}
-
-func runServer() (*testServer, error) {
-	containerName := uuid.New().String()
-
-	cmd := exec.CommandContext(
-		context.Background(),
-		"docker",
-		"run",
-		"-d",
-		"--rm",
-		"--name", containerName,
-		"-p", "9092:9092",
-		"--env", "ADVERTISED_HOST=127.0.0.1",
-		"--env", "ADVERTISED_PORT=9092",
-		"uwdev/docker-kafka",
-	)
-	if err := cmd.Run(); err != nil {
-		return nil, err
-	}
-
-	port := 0
-	// wait for container to start up
-loop:
-	for {
-		portCmd := exec.Command("docker", "port", containerName, "9092/tcp")
-
-		out, err := portCmd.CombinedOutput()
-		switch {
-		case err == nil:
-			outS := string(out) // e.g., 0.0.0.0:32776
-			ps := strings.Split(outS, ":")
-			if len(ps) != 2 {
-				cmd.Process.Kill()
-				return nil, fmt.Errorf("docker port returned something strange: %s", outS)
-			}
-			p, err := strconv.Atoi(strings.TrimSpace(ps[1]))
-			if err != nil {
-				cmd.Process.Kill()
-				return nil, fmt.Errorf("docker port returned something strange: %s", outS)
-			}
-			port = p
-			break loop
-		case bytes.Contains(out, []byte("No such container:")):
-			// Still starting up. Wait a while.
-			time.Sleep(time.Millisecond * 100)
-		default:
-			return nil, err
-		}
-	}
-
-	ks := &testServer{containerName, port}
-
-	// wait for cluster to be ready
-loop2:
-	for {
-		config := sarama.NewConfig()
-		c, err := sarama.NewConsumer([]string{fmt.Sprintf("localhost:%d", port)}, config)
-		if err == nil {
-			c.Close()
-			break loop2
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	return ks, nil
-}
 
 type message struct {
 	data []byte

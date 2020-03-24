@@ -17,6 +17,7 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.4.0
 	github.com/uw-labs/freezer v0.0.0-20200217144949-6d67e7edcab8
+	github.com/uw-labs/podrick v0.4.0
 	github.com/uw-labs/proximo v0.0.0-20190913093050-8229af78f5dd
 	github.com/uw-labs/straw v0.0.0-20200213162553-01e9a0f94f69
 	github.com/uw-labs/sync v0.0.0-20190307114256-1bb306bf6e71
