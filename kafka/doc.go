@@ -20,4 +20,22 @@
 //      consumer-group   - The consumer group id
 //      metadata-refresh - How frequently to refresh the cluster metadata. E.g., '10s' '2m'
 //
+// Finally to debug behaviour of the underlying Sarama library you can set environment variable
+//      SUBSTRATE_KAFKA_DEBUG_LOG=true
+// to enable Sarama debug logging.
+
 package kafka
+
+import (
+	"log"
+	"os"
+	"strings"
+
+	"github.com/Shopify/sarama"
+)
+
+func init() {
+	if strings.ToLower(os.Getenv("SUBSTRATE_KAFKA_DEBUG_LOG")) == "true" {
+		sarama.Logger = log.New(os.Stdout, "[Sarama] ", log.LstdFlags)
+	}
+}

@@ -81,6 +81,14 @@ func newKafkaSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 		}
 		conf.SessionTimeout = d
 	}
+	dur = q.Get("max-processing-time")
+	if dur != "" {
+		d, err := time.ParseDuration(dur)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse max processing time : %v", err)
+		}
+		conf.MaxProcessingTime = d
+	}
 
 	conf.Version = q.Get("version")
 

@@ -17,8 +17,9 @@ const (
 	// OffsetNewest indicates the next appropriate message available on the broker.
 	OffsetNewest int64 = sarama.OffsetNewest
 
-	defaultMetadataRefreshFrequency = 10 * time.Minute
-	defaultConsumerSessionTimeout   = 10 * time.Second
+	defaultMetadataRefreshFrequency  = 10 * time.Minute
+	defaultConsumerSessionTimeout    = 10 * time.Second
+	defaultConsumerMaxProcessingTime = 100 * time.Millisecond
 )
 
 // AsyncMessageSource represents a kafka message source and implements the
@@ -31,6 +32,7 @@ type AsyncMessageSourceConfig struct {
 	MetadataRefreshFrequency time.Duration
 	OffsetsRetention         time.Duration
 	SessionTimeout           time.Duration
+	MaxProcessingTime        time.Duration
 	Version                  string
 }
 
@@ -47,9 +49,13 @@ func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*sarama.Config
 	if ams.SessionTimeout != 0 {
 		st = ams.SessionTimeout
 	}
+	pt := defaultConsumerMaxProcessingTime
+	if ams.MaxProcessingTime != 0 {
+		pt = ams.MaxProcessingTime
+	}
 
 	config := sarama.NewConfig()
-	config.Consumer.Return.Errors = true
+	config.Consumer.MaxProcessingTime = pt
 	config.Consumer.Offsets.Initial = offset
 	config.Metadata.RefreshFrequency = mrf
 	config.Consumer.Group.Session.Timeout = st
@@ -83,23 +89,25 @@ func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSo
 	}
 
 	return &asyncMessageSource{
-		client:        client,
-		consumerGroup: consumerGroup,
-		topic:         c.Topic,
+		client:            client,
+		consumerGroup:     consumerGroup,
+		topic:             c.Topic,
+		channelBufferSize: config.ChannelBufferSize,
 	}, nil
 }
 
 type asyncMessageSource struct {
-	client        sarama.Client
-	consumerGroup sarama.ConsumerGroup
-	topic         string
+	client            sarama.Client
+	consumerGroup     sarama.ConsumerGroup
+	topic             string
+	channelBufferSize int
 }
 
 type consumerMessage struct {
 	cm *sarama.ConsumerMessage
 
-	discard bool
-	offset  *struct {
+	sessVersion int
+	offset      *struct {
 		topic     string
 		partition int32
 		offset    int64
@@ -132,8 +140,8 @@ func (cm *consumerMessage) DiscardPayload() {
 
 func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
 	rg, ctx := rungroup.New(ctx)
-	toAck := make(chan *consumerMessage)
-	sessCh := make(chan sarama.ConsumerGroupSession)
+	toAck := make(chan *consumerMessage, ams.channelBufferSize)
+	sessCh := make(chan *session)
 	rebalanceCh := make(chan struct{})
 
 	rg.Go(func() error {
