@@ -17,8 +17,9 @@ const (
 	// OffsetNewest indicates the next appropriate message available on the broker.
 	OffsetNewest int64 = sarama.OffsetNewest
 
-	defaultMetadataRefreshFrequency = 10 * time.Minute
-	defaultConsumerSessionTimeout   = 10 * time.Second
+	defaultMetadataRefreshFrequency  = 10 * time.Minute
+	defaultConsumerSessionTimeout    = 10 * time.Second
+	defaultConsumerMaxProcessingTime = 100 * time.Millisecond
 )
 
 // AsyncMessageSource represents a kafka message source and implements the
@@ -31,6 +32,7 @@ type AsyncMessageSourceConfig struct {
 	MetadataRefreshFrequency time.Duration
 	OffsetsRetention         time.Duration
 	SessionTimeout           time.Duration
+	MaxProcessingTime        time.Duration
 	Version                  string
 }
 
@@ -47,8 +49,13 @@ func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*sarama.Config
 	if ams.SessionTimeout != 0 {
 		st = ams.SessionTimeout
 	}
+	pt := defaultConsumerMaxProcessingTime
+	if ams.MaxProcessingTime != 0 {
+		pt = ams.MaxProcessingTime
+	}
 
 	config := sarama.NewConfig()
+	config.Consumer.MaxProcessingTime = pt
 	config.Consumer.Offsets.Initial = offset
 	config.Metadata.RefreshFrequency = mrf
 	config.Consumer.Group.Session.Timeout = st
