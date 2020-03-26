@@ -49,7 +49,6 @@ func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*sarama.Config
 	}
 
 	config := sarama.NewConfig()
-	config.Consumer.Return.Errors = true
 	config.Consumer.Offsets.Initial = offset
 	config.Metadata.RefreshFrequency = mrf
 	config.Consumer.Group.Session.Timeout = st
