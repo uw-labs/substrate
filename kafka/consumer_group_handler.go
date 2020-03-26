@@ -7,19 +7,30 @@ import (
 	"github.com/uw-labs/substrate"
 )
 
+type session struct {
+	version       int
+	saramaSession sarama.ConsumerGroupSession
+}
+
 type consumerGroupHandler struct {
 	ctx         context.Context
 	toAck       chan<- *consumerMessage
-	sessCh      chan<- sarama.ConsumerGroupSession
+	sessCh      chan<- *session
 	rebalanceCh chan<- struct{}
+	version     int
 }
 
 // Setup is run at the beginning of a new session, before ConsumeClaim.
 func (c *consumerGroupHandler) Setup(sess sarama.ConsumerGroupSession) error {
+	c.version++
+	s := &session{
+		version:       c.version,
+		saramaSession: sess,
+	}
 	// send session to the ack processor
 	select {
 	case <-c.ctx.Done():
-	case c.sessCh <- sess:
+	case c.sessCh <- s:
 	}
 	return nil
 }
@@ -51,7 +62,7 @@ func (c *consumerGroupHandler) ConsumeClaim(_ sarama.ConsumerGroupSession, claim
 			if !ok {
 				return nil
 			}
-			cm := &consumerMessage{cm: m}
+			cm := &consumerMessage{cm: m, sessVersion: c.version}
 			select {
 			case c.toAck <- cm:
 			case <-c.ctx.Done():
@@ -65,37 +76,43 @@ type kafkaAcksProcessor struct {
 	toClient    chan<- substrate.Message
 	fromKafka   <-chan *consumerMessage
 	acks        <-chan substrate.Message
-	sessCh      <-chan sarama.ConsumerGroupSession
+	sessCh      <-chan *session
 	rebalanceCh <-chan struct{}
 
-	sess      sarama.ConsumerGroupSession
-	forAcking []*consumerMessage
+	sess        sarama.ConsumerGroupSession
+	sessVersion int
+	forAcking   []*consumerMessage
+}
+
+func (ap *kafkaAcksProcessor) setSession(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return false
+	case s := <-ap.sessCh:
+		ap.sess = s.saramaSession
+		ap.sessVersion = s.version
+	}
+	return true
 }
 
 func (ap *kafkaAcksProcessor) run(ctx context.Context) error {
 	// First set session, so that we can acknowledge messages.
-	select {
-	case <-ctx.Done():
+	if ok := ap.setSession(ctx); !ok {
 		return nil
-	case ap.sess = <-ap.sessCh:
 	}
-
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-ap.rebalanceCh:
-			// Mark all pending messages to be discarded, as rebalance happened.
-			for _, msg := range ap.forAcking {
-				msg.discard = true
-			}
 			// Wait for the new session.
-			select {
-			case <-ctx.Done():
+			if ok := ap.setSession(ctx); !ok {
 				return nil
-			case ap.sess = <-ap.sessCh:
 			}
 		case msg := <-ap.fromKafka:
+			if msg.sessVersion != ap.sessVersion {
+				continue // skip message that was written consumed for previous session version
+			}
 			if err := ap.processMessage(ctx, msg); err != nil {
 				if err == context.Canceled {
 					// This error is returned when a context cancellation is encountered
@@ -119,14 +136,9 @@ func (ap *kafkaAcksProcessor) processMessage(ctx context.Context, msg *consumerM
 		case <-ctx.Done():
 			return context.Canceled
 		case <-ap.rebalanceCh:
-			// Mark all pending messages to be discarded, as rebalance happened.
-			for _, msg := range ap.forAcking {
-				msg.discard = true
-			}
 			// Wait for the new session.
-			select {
-			case <-ctx.Done():
-			case ap.sess = <-ap.sessCh:
+			if ok := ap.setSession(ctx); !ok {
+				return context.Canceled
 			}
 			return nil // We can return immediately as the current message can be discarded.
 		case ap.toClient <- msg:
@@ -153,7 +165,7 @@ func (ap *kafkaAcksProcessor) processAck(ack substrate.Message) error {
 			Acked:    ack,
 			Expected: ap.forAcking[0],
 		}
-	case ap.forAcking[0].discard:
+	case ap.forAcking[0].sessVersion != ap.sessVersion:
 		// Discard pending message that was consumed before a rebalance.
 		ap.forAcking = ap.forAcking[1:]
 	default:

@@ -83,23 +83,25 @@ func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSo
 	}
 
 	return &asyncMessageSource{
-		client:        client,
-		consumerGroup: consumerGroup,
-		topic:         c.Topic,
+		client:            client,
+		consumerGroup:     consumerGroup,
+		topic:             c.Topic,
+		channelBufferSize: config.ChannelBufferSize,
 	}, nil
 }
 
 type asyncMessageSource struct {
-	client        sarama.Client
-	consumerGroup sarama.ConsumerGroup
-	topic         string
+	client            sarama.Client
+	consumerGroup     sarama.ConsumerGroup
+	topic             string
+	channelBufferSize int
 }
 
 type consumerMessage struct {
 	cm *sarama.ConsumerMessage
 
-	discard bool
-	offset  *struct {
+	sessVersion int
+	offset      *struct {
 		topic     string
 		partition int32
 		offset    int64
@@ -132,8 +134,8 @@ func (cm *consumerMessage) DiscardPayload() {
 
 func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
 	rg, ctx := rungroup.New(ctx)
-	toAck := make(chan *consumerMessage)
-	sessCh := make(chan sarama.ConsumerGroupSession)
+	toAck := make(chan *consumerMessage, ams.channelBufferSize)
+	sessCh := make(chan *session)
 	rebalanceCh := make(chan struct{})
 
 	rg.Go(func() error {
