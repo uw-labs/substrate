@@ -42,7 +42,9 @@ func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageS
 		Topic:   config.Topic,
 		KeyFunc: config.KeyFunc,
 
-		debugger: debug.Debugger{config.Debug},
+		debugger: debug.Debugger{
+			Enabled: config.Debug,
+		},
 	}
 	return &sink, nil
 }

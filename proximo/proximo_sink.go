@@ -40,9 +40,11 @@ func NewAsyncMessageSink(c AsyncMessageSinkConfig) (substrate.AsyncMessageSink, 
 	}
 
 	return &asyncMessageSink{
-		conn:     conn,
-		topic:    c.Topic,
-		debugger: debug.Debugger{c.Debug},
+		conn:  conn,
+		topic: c.Topic,
+		debugger: debug.Debugger{
+			Enabled: c.Debug,
+		},
 	}, nil
 }
 
