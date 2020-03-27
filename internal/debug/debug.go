@@ -11,7 +11,7 @@ import (
 
 func messageHash(data []byte) string {
 	f := fnv.New32()
-	f.Write(data)
+	_, _ = f.Write(data)
 	sum := f.Sum(nil)
 	return base64.StdEncoding.EncodeToString(sum)
 
