@@ -70,6 +70,16 @@ func TestProximoSink(t *testing.T) {
 			},
 			expectedErr: nil,
 		},
+		{
+			name:  "withdebug",
+			input: "proximo://localhost:123/t1?debug=true",
+			expected: AsyncMessageSinkConfig{
+				Broker: "localhost:123",
+				Topic:  "t1",
+				Debug:  true,
+			},
+			expectedErr: nil,
+		},
 	}
 
 	for _, tst := range tests {
