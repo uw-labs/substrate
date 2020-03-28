@@ -13,6 +13,7 @@ import (
 
 	"github.com/uw-labs/proximo/proto"
 	"github.com/uw-labs/substrate"
+	"github.com/uw-labs/substrate/internal/debug"
 	"github.com/uw-labs/sync/rungroup"
 )
 
@@ -23,6 +24,8 @@ type AsyncMessageSinkConfig struct {
 	Topic     string
 	Insecure  bool
 	KeepAlive *KeepAlive
+
+	Debug bool
 }
 
 func NewAsyncMessageSink(c AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
@@ -39,12 +42,17 @@ func NewAsyncMessageSink(c AsyncMessageSinkConfig) (substrate.AsyncMessageSink, 
 	return &asyncMessageSink{
 		conn:  conn,
 		topic: c.Topic,
+		debugger: debug.Debugger{
+			Enabled: c.Debug,
+		},
 	}, nil
 }
 
 type asyncMessageSink struct {
 	conn  *grpc.ClientConn
 	topic string
+
+	debugger debug.Debugger
 }
 
 func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
@@ -109,6 +117,7 @@ func (ams *asyncMessageSink) sendMessagesToProximo(ctx context.Context, stream m
 				}
 				return errors.Wrap(err, "failed to send message to proximo")
 			}
+			ams.debugger.Logf("substrate : sent to proximo : %s which has id %s\n", pMsg, pMsg.Id)
 		}
 	}
 }
@@ -130,6 +139,7 @@ func (ams *asyncMessageSink) receiveAcksFromProximo(ctx context.Context, stream 
 		case <-ctx.Done():
 			return nil
 		case proximoAcks <- conf.MsgID:
+			ams.debugger.Logf("substrate : got ack msgid from proximo %s\n", conf.MsgID)
 		}
 	}
 }
@@ -155,6 +165,7 @@ func (ams *asyncMessageSink) passAcksToUser(ctx context.Context, acks chan<- sub
 				case ack := <-toAck:
 					ackMap[ack.id] = ack.msg
 				case acks <- msg:
+					ams.debugger.Logf("substrate : sent ack to user : %v\n", msg)
 					delete(ackMap, msgID)
 					sent = true
 				}

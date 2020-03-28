@@ -33,6 +33,11 @@ func newKafkaSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 
 	conf.Version = q.Get("version")
 
+	debug := q.Get("debug")
+	if debug == "true" {
+		conf.Debug = true
+	}
+
 	return kafkaSinker(conf)
 }
 

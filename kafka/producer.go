@@ -6,6 +6,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/uw-labs/substrate"
+	"github.com/uw-labs/substrate/internal/debug"
 	"github.com/uw-labs/substrate/internal/unwrap"
 )
 
@@ -20,6 +21,8 @@ type AsyncMessageSinkConfig struct {
 	MaxMessageBytes int
 	KeyFunc         func(substrate.Message) []byte
 	Version         string
+
+	Debug bool
 }
 
 func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
@@ -38,6 +41,10 @@ func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageS
 		client:  client,
 		Topic:   config.Topic,
 		KeyFunc: config.KeyFunc,
+
+		debugger: debug.Debugger{
+			Enabled: config.Debug,
+		},
 	}
 	return &sink, nil
 }
@@ -46,6 +53,8 @@ type asyncMessageSink struct {
 	client  sarama.Client
 	Topic   string
 	KeyFunc func(substrate.Message) []byte
+
+	debugger debug.Debugger
 }
 
 func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
@@ -71,7 +80,9 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 
 	go func() {
 		for suc := range successes {
-			acks <- suc.Metadata.(substrate.Message)
+			msg := suc.Metadata.(substrate.Message)
+			acks <- msg
+			ams.debugger.Logf("substrate : sent ack to caller for message : %s\n", msg)
 		}
 	}()
 	for {
@@ -91,6 +102,7 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 
 			message.Metadata = m
 			input <- message
+			ams.debugger.Logf("substrate : sent to kafka : %s\n", m)
 		case <-ctx.Done():
 			return nil
 		case err := <-errs:

@@ -52,6 +52,7 @@ func (ts *testServer) NewProducer(topic string) substrate.AsyncMessageSink {
 		Broker:   fmt.Sprintf("localhost:%d", ts.port),
 		Topic:    topic,
 		Insecure: true,
+		Debug:    true,
 	})
 	if err != nil {
 		panic(err)

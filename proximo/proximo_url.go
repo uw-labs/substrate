@@ -45,6 +45,11 @@ func newProximoSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 		conf.Insecure = false
 	}
 
+	debug := q.Get("debug")
+	if debug == "true" {
+		conf.Debug = true
+	}
+
 	return proximoSinker(conf)
 }
 
