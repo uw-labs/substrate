@@ -64,9 +64,11 @@ func (s *AckOrderingSink) PublishMessages(ctx context.Context, acks chan<- subst
 				}
 				gotAcks[a] = struct{}{}
 				for len(gotAcks) > 0 && contains(gotAcks, needed[0]) {
-					delete(gotAcks, needed[0])
 					select {
+					case m := <-needAcks:
+ 						needed = append(needed, m)
 					case acks <- needed[0]:
+						delete(gotAcks, needed[0])
 						needed = needed[1:]
 					case <-ctx.Done():
 						return ctx.Err()
