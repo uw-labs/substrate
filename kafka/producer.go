@@ -7,6 +7,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/internal/debug"
+	"github.com/uw-labs/substrate/internal/helper"
 	"github.com/uw-labs/substrate/internal/unwrap"
 )
 
@@ -46,7 +47,7 @@ func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageS
 			Enabled: config.Debug,
 		},
 	}
-	return &sink, nil
+	return helper.NewAckOrderingSink(&sink), nil
 }
 
 type asyncMessageSink struct {
