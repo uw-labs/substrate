@@ -29,6 +29,8 @@ func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 	switch cts {
 	case "snappy":
 		ct = freezer.CompressionTypeSnappy
+	case "zstd":
+		ct = freezer.CompressionTypeZstd
 	case "none", "":
 	default:
 		return nil, fmt.Errorf("unknown compression type : %s", cts)
@@ -102,6 +104,8 @@ func newFreezerSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 	switch cts {
 	case "snappy":
 		ct = freezer.CompressionTypeSnappy
+	case "zstd":
+		ct = freezer.CompressionTypeZstd
 	case "none", "":
 	default:
 		return nil, fmt.Errorf("unknown compression type : %s", cts)
