@@ -1,4 +1,4 @@
-// Package natsstreaming provides kafka support for substrate
+// Package natsstreaming provides NATS Streaming support for substrate
 //
 // Usage
 //

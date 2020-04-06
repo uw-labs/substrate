@@ -12,8 +12,8 @@ Current implementations and their status
 
 | Implementation                           | Status        |
 | ---------------------------------------- | ------------- |
+| Amazon SQS                               | beta          |
 | Apache Kafka                             | beta          |
 | Nats streaming                           | beta          |
 | Proximo                                  | alpha         |
 | Freezer                                  | alpha         |
-
