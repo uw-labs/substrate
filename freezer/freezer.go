@@ -127,6 +127,16 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 		for {
 			select {
 			case m := <-ackQ:
+				l := len(forAcking)
+				if l == cap(forAcking) {
+					newLen := (l + 1) * 2
+					if newLen < 65535 {
+						newLen = 65556
+					}
+					newSlice := make([]substrate.Message, l, newLen)
+					copy(newSlice, forAcking)
+					forAcking = newSlice
+				}
 				forAcking = append(forAcking, m)
 			case ack := <-acks:
 				switch {
