@@ -75,39 +75,26 @@ type asyncMessageSink struct {
 }
 
 func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	sendErr := make(chan error, 1)
-
-	go func() {
-	LOOP:
-		for {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case msg := <-messages:
+			payload := string(msg.Data())
+			_, err := p.sqsClient.SendMessageWithContext(ctx, &sqs.SendMessageInput{
+				MessageBody:    &payload,
+				MessageGroupId: p.messageGroupID,
+				QueueUrl:       p.queueURL,
+			})
+			if err != nil {
+				return err
+			}
 			select {
 			case <-ctx.Done():
-				break LOOP
-			case msg := <-messages:
-				payload := string(msg.Data())
-
-				_, err := p.sqsClient.SendMessageWithContext(ctx, &sqs.SendMessageInput{
-					MessageBody:    &payload,
-					MessageGroupId: p.messageGroupID,
-					QueueUrl:       p.queueURL,
-				})
-				if err != nil {
-					sendErr <- err
-					break LOOP
-				}
-				acks <- msg
+				return nil
+			case acks <- msg:
 			}
 		}
-	}()
-
-	select {
-	case <-ctx.Done():
-		return
-	case serr := <-sendErr:
-		return serr
 	}
 }
 
