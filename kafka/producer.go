@@ -102,7 +102,11 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 			}
 
 			message.Metadata = m
-			input <- message
+			select {
+			case input <- message:
+			case <-ctx.Done():
+				return nil
+			}
 			ams.debugger.Logf("substrate : sent to kafka : %s\n", m)
 		case <-ctx.Done():
 			return nil
