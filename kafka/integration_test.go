@@ -18,7 +18,6 @@ import (
 )
 
 func TestAll(t *testing.T) {
-
 	k, err := runServer()
 	if err != nil {
 		t.Fatal(err)
@@ -133,7 +132,6 @@ func (ks *testServer) NewConsumer(topic string, groupID string) substrate.AsyncM
 		Offset:        OffsetOldest,
 		Version:       "2.4.0",
 	})
-
 	if err != nil {
 		panic(err)
 	}

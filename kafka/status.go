@@ -6,7 +6,6 @@ import (
 )
 
 func status(client sarama.Client, topic string) (*substrate.Status, error) {
-
 	status := &substrate.Status{}
 
 	writablePartitions, err := client.WritablePartitions(topic)

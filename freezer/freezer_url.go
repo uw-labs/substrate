@@ -21,7 +21,6 @@ func init() {
 }
 
 func newFreezerSink(u *url.URL) (substrate.AsyncMessageSink, error) {
-
 	q := u.Query()
 
 	cts := q.Get("compression")
@@ -160,7 +159,6 @@ func newFreezerSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 	default:
 		return nil, fmt.Errorf("unsupported scheme : %s", u.Scheme)
 	}
-
 }
 
 var sourcer = NewAsyncMessageSource

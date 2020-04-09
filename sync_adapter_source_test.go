@@ -66,7 +66,6 @@ func TestSyncConsumeAdapterBasic(t *testing.T) {
 	default:
 		t.Error("underlying async source didn't get closed")
 	}
-
 }
 
 func TestSyncConsumeAdapterNoAckAfterError(t *testing.T) {

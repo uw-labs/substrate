@@ -88,7 +88,6 @@ func TestNatsStreamingURLSink(t *testing.T) {
 			assert.Equal(tst.expected, c)
 		})
 	}
-
 }
 
 func TestNatsStreamingURLSource(t *testing.T) {
@@ -174,5 +173,4 @@ func TestNatsStreamingURLSource(t *testing.T) {
 			assert.Equal(tst.expected, c)
 		})
 	}
-
 }

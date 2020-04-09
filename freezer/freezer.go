@@ -116,7 +116,6 @@ type asyncMessageSource struct {
 }
 
 func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
-
 	eg, ctx := errgroup.WithContext(ctx)
 
 	ackQ := make(chan substrate.Message)

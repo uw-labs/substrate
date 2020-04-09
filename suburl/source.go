@@ -2,9 +2,10 @@ package suburl
 
 import (
 	"fmt"
-	"github.com/uw-labs/substrate"
 	"net/url"
 	"sync"
+
+	"github.com/uw-labs/substrate"
 )
 
 var (

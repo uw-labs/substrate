@@ -107,7 +107,6 @@ func newProximoSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 }
 
 func keepAliveFromURLValues(q url.Values) (*KeepAlive, error) {
-
 	if q.Get("keep-alive-time") != "" {
 
 		t, err := time.ParseDuration(q.Get("keep-alive-time"))

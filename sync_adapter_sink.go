@@ -49,7 +49,6 @@ type produceReq struct {
 }
 
 func (spa *synchronousMessageSinkAdapter) loop() {
-
 	toSend := make(chan Message)
 	acks := make(chan Message)
 
@@ -154,7 +153,6 @@ func (spa *synchronousMessageSinkAdapter) PublishMessage(ctx context.Context, m 
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-
 }
 
 func (spa *synchronousMessageSinkAdapter) Status() (*Status, error) {

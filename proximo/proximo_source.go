@@ -24,9 +24,7 @@ const (
 	OffsetNewest Offset = 2
 )
 
-var (
-	_ substrate.AsyncMessageSource = (*asyncMessageSource)(nil)
-)
+var _ substrate.AsyncMessageSource = (*asyncMessageSource)(nil)
 
 // AsyncMessageSource represents a proximo message source and implements the
 // substrate.AsyncMessageSource interface.
@@ -41,7 +39,6 @@ type AsyncMessageSourceConfig struct {
 }
 
 func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
-
 	conn, err := dialProximo(dialConfig{
 		broker:         c.Broker,
 		insecure:       c.Insecure,
@@ -94,7 +91,6 @@ func (cm *consMsg) getMsgID() string {
 }
 
 func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
-
 	rg, ctx := rungroup.New(ctx)
 	client := proto.NewMessageSourceClient(ams.conn)
 
@@ -176,7 +172,6 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 	})
 
 	return rg.Wait()
-
 }
 
 func (ams *asyncMessageSource) Status() (*substrate.Status, error) {

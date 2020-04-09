@@ -84,7 +84,6 @@ func TestProximoSink(t *testing.T) {
 
 	for _, tst := range tests {
 		t.Run(tst.name, func(t *testing.T) {
-
 			var conf AsyncMessageSinkConfig
 			proximoSinker = func(c AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
 				conf = c
@@ -99,7 +98,6 @@ func TestProximoSink(t *testing.T) {
 			assert.Equal(tst.expected, conf)
 		})
 	}
-
 }
 
 func TestProximoSource(t *testing.T) {
@@ -177,7 +175,6 @@ func TestProximoSource(t *testing.T) {
 
 	for _, tst := range tests {
 		t.Run(tst.name, func(t *testing.T) {
-
 			var conf AsyncMessageSourceConfig
 			proximoSourcer = func(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
 				conf = c
@@ -192,5 +189,4 @@ func TestProximoSource(t *testing.T) {
 			assert.Equal(tst.expected, conf)
 		})
 	}
-
 }

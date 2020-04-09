@@ -14,7 +14,6 @@ func messageHash(data []byte) string {
 	_, _ = f.Write(data)
 	sum := f.Sum(nil)
 	return base64.StdEncoding.EncodeToString(sum)
-
 }
 
 type Debugger struct {

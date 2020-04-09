@@ -7,9 +7,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-var (
-	_ substrate.AsyncMessageSink = (*AckOrderingSink)(nil)
-)
+var _ substrate.AsyncMessageSink = (*AckOrderingSink)(nil)
 
 func NewAckOrderingSink(sink substrate.AsyncMessageSink) *AckOrderingSink {
 	return &AckOrderingSink{sink}
@@ -66,7 +64,7 @@ func (s *AckOrderingSink) PublishMessages(ctx context.Context, acks chan<- subst
 				for len(gotAcks) > 0 && contains(gotAcks, needed[0]) {
 					select {
 					case m := <-needAcks:
- 						needed = append(needed, m)
+						needed = append(needed, m)
 					case acks <- needed[0]:
 						delete(gotAcks, needed[0])
 						needed = needed[1:]
