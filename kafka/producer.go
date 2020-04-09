@@ -87,8 +87,12 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 			select {
 			case suc := <-successes:
 				msg := suc.Metadata.(substrate.Message)
-				acks <- msg
-				ams.debugger.Logf("substrate : sent ack to caller for message : %s\n", msg)
+				select {
+				case acks <- msg:
+					ams.debugger.Logf("substrate : sent ack to caller for message : %s\n", msg)
+				case <-ctx.Done():
+					return ctx.Err()
+				}
 			case <-ctx.Done():
 				return ctx.Err()
 			}
