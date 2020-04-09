@@ -29,7 +29,6 @@ type AsyncMessageSinkConfig struct {
 }
 
 func NewAsyncMessageSink(c AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
-
 	conn, err := dialProximo(dialConfig{
 		broker:    c.Broker,
 		insecure:  c.Insecure,
@@ -56,7 +55,6 @@ type asyncMessageSink struct {
 }
 
 func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
-
 	rg, ctx := rungroup.New(ctx)
 
 	client := proto.NewMessageSinkClient(ams.conn)

@@ -101,7 +101,6 @@ func testOnePublisherOneMessageOneConsumer(t *testing.T, ts TestServer) {
 	if err := <-prodErrs; err != nil {
 		t.Errorf("unexpected error from consume : %s", err)
 	}
-
 }
 
 func testOnePublisherOneConsumerConsumeWithoutAcking(t *testing.T, ts TestServer) {
@@ -214,7 +213,6 @@ func testOnePublisherOneMessageTwoConsumers(t *testing.T, ts TestServer) {
 	if err := <-cons1Errs; err != nil {
 		t.Errorf("unexpected error from consume : %s", err)
 	}
-
 }
 
 func testPublisherShouldNotBlock(t *testing.T, ts TestServer) {
@@ -368,7 +366,7 @@ func testConsumeWithoutAck(t *testing.T, ts TestServer) {
 	case <-cons1Msgs:
 	case err := <-cons1Errs:
 		if err != nil {
-			t.Error(err) //TODO: prolly not.
+			t.Error(err) // TODO: prolly not.
 		}
 	}
 
@@ -391,7 +389,6 @@ func testConsumeWithoutAck(t *testing.T, ts TestServer) {
 	if err := <-cons2Errs; err != nil {
 		t.Errorf("unexpected error from consume : %s", err)
 	}
-
 }
 
 func testProduceStatusOk(t *testing.T, ts TestServer) {
@@ -471,7 +468,6 @@ func testPublishMultipleMessagesOneConsumer(t *testing.T, ts TestServer) {
 	if err := <-prodErrs; err != nil {
 		t.Errorf("unexpected error from consume : %s", err)
 	}
-
 }
 
 func testOnePublisherOneConsumerConsumeWithoutAckingDiscardedPayload(t *testing.T, ts TestServer) {
@@ -588,7 +584,6 @@ func produceAndCheckAck(ctx context.Context, t *testing.T, prodMsgs chan<- subst
 }
 
 func consumeAndAck(ctx context.Context, t *testing.T, consMsgs <-chan substrate.Message, consAcks chan<- substrate.Message) string {
-
 	var msg substrate.Message
 
 	// receive it
@@ -615,7 +610,6 @@ func consumeAndAck(ctx context.Context, t *testing.T, consMsgs <-chan substrate.
 }
 
 func consumeAndAckDiscard(ctx context.Context, t *testing.T, consMsgs <-chan substrate.Message, consAcks chan<- substrate.Message) string {
-
 	var msg substrate.Message
 
 	// receive it

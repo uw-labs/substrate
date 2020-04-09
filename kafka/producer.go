@@ -28,7 +28,6 @@ type AsyncMessageSinkConfig struct {
 }
 
 func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
-
 	conf, err := config.buildSaramaProducerConfig()
 	if err != nil {
 		return nil, err
@@ -60,7 +59,6 @@ type asyncMessageSink struct {
 }
 
 func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
-
 	producer, err := sarama.NewAsyncProducerFromClient(ams.client)
 	if err != nil {
 		return err
@@ -75,7 +73,6 @@ func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 }
 
 func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sarama.AsyncProducer, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
-
 	input := producer.Input()
 	errs := producer.Errors()
 	successes := producer.Successes()

@@ -80,7 +80,6 @@ type asyncMessageSink struct {
 }
 
 func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
-
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -94,7 +93,7 @@ func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- subs
 		for {
 			select {
 			case <-ctx.Done():
-				//return ctx.Err()
+				// return ctx.Err()
 				break LOOP
 			case msg := <-messages:
 				_, err := conn.PublishAsync(p.subject, msg.Data(), func(guid string, err error) {
@@ -201,7 +200,6 @@ func (cm *consumerMessage) Data() []byte {
 }
 
 func (c *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
-
 	msgsToAck := make(chan *consumerMessage)
 
 	f := func(msg *stan.Msg) {
@@ -285,7 +283,7 @@ func handleAcks(ctx context.Context, msgsToAck chan *consumerMessage, acks <-cha
 			}
 			toAck = toAck[1:]
 		case <-ctx.Done():
-			//return ctx.Err()
+			// return ctx.Err()
 			return nil
 		case e, ok := <-disconnected:
 			if ok {

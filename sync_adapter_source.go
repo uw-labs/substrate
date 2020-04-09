@@ -20,7 +20,6 @@ type synchronousMessageSourceAdapter struct {
 }
 
 func (a *synchronousMessageSourceAdapter) ConsumeMessages(ctx context.Context, handler ConsumerMessageHandler) error {
-
 	rg, ctx := rungroup.New(ctx)
 
 	messages := make(chan Message)

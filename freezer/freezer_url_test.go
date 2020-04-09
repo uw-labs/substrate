@@ -76,7 +76,6 @@ func TestFreezerSink(t *testing.T) {
 
 	for _, tst := range tests {
 		t.Run(tst.name, func(t *testing.T) {
-
 			var conf AsyncMessageSinkConfig
 			sinker = func(c AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
 				conf = c
@@ -91,7 +90,6 @@ func TestFreezerSink(t *testing.T) {
 			assert.Equal(tst.expected, conf)
 		})
 	}
-
 }
 
 func TestFreezerSource(t *testing.T) {
@@ -159,7 +157,6 @@ func TestFreezerSource(t *testing.T) {
 
 	for _, tst := range tests {
 		t.Run(tst.name, func(t *testing.T) {
-
 			var conf AsyncMessageSourceConfig
 			sourcer = func(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
 				conf = c
@@ -174,7 +171,6 @@ func TestFreezerSource(t *testing.T) {
 			assert.Equal(tst.expected, conf)
 		})
 	}
-
 }
 
 type mockStore struct {

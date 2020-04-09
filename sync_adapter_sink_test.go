@@ -62,7 +62,6 @@ type mockAsyncSink struct {
 
 func (mock *mockAsyncSink) PublishMessages(ctx context.Context, acks chan<- Message, messages <-chan Message) error {
 	for {
-
 		select {
 		case <-ctx.Done():
 			return ctx.Err()

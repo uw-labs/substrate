@@ -46,7 +46,6 @@ func TestAckOrderingSink(t *testing.T) {
 
 	err := eg.Wait()
 	assert.NoError(err)
-
 }
 
 type myMessage struct {

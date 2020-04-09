@@ -12,7 +12,6 @@ import (
 )
 
 func TestAll(t *testing.T) {
-
 	k, err := runServer()
 	if err != nil {
 		t.Fatal(err)
@@ -43,7 +42,6 @@ func runServer() (*testServer, error) {
 }
 
 func (ks *testServer) NewConsumer(topic string, groupID string) substrate.AsyncMessageSource {
-
 	s, err := NewAsyncMessageSource(AsyncMessageSourceConfig{
 		StreamStore: ks.ss,
 		FreezerConfig: freezer.MessageSourceConfig{
@@ -75,7 +73,7 @@ func (ks *testServer) TestEnd() {
 }
 
 func (ks *testServer) Kill() error {
-	//log.Printf("TODO: remove %s\n", ks.dir)
+	// log.Printf("TODO: remove %s\n", ks.dir)
 	os.RemoveAll(ks.dir)
 	return nil
 }

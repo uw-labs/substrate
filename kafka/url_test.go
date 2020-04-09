@@ -69,7 +69,6 @@ func TestKafkaSink(t *testing.T) {
 
 	for _, tst := range tests {
 		t.Run(tst.name, func(t *testing.T) {
-
 			var conf AsyncMessageSinkConfig
 			kafkaSinker = func(c AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
 				conf = c
@@ -84,7 +83,6 @@ func TestKafkaSink(t *testing.T) {
 			assert.Equal(tst.expected, conf)
 		})
 	}
-
 }
 
 func TestKafkaSource(t *testing.T) {
@@ -140,7 +138,6 @@ func TestKafkaSource(t *testing.T) {
 
 	for _, tst := range tests {
 		t.Run(tst.name, func(t *testing.T) {
-
 			var conf AsyncMessageSourceConfig
 			kafkaSourcer = func(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
 				conf = c
@@ -155,5 +152,4 @@ func TestKafkaSource(t *testing.T) {
 			assert.Equal(tst.expected, conf)
 		})
 	}
-
 }
