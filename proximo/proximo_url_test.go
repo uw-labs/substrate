@@ -2,6 +2,7 @@ package proximo
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/uw-labs/substrate"
@@ -36,6 +37,30 @@ func TestProximoSink(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
+			name:  "with-keep-alive",
+			input: "proximo://localhost:123/t1?keep-alive-time=60m",
+			expected: AsyncMessageSinkConfig{
+				Broker: "localhost:123",
+				Topic:  "t1",
+				KeepAlive: &KeepAlive{
+					Time:    time.Minute * 60,
+					Timeout: time.Second * 10,
+				},
+			},
+		},
+		{
+			name:  "with-keep-alive-timeout",
+			input: "proximo://localhost:123/t1?keep-alive-time=60m&keep-alive-timeout=70s",
+			expected: AsyncMessageSinkConfig{
+				Broker: "localhost:123",
+				Topic:  "t1",
+				KeepAlive: &KeepAlive{
+					Time:    time.Minute * 60,
+					Timeout: time.Second * 70,
+				},
+			},
+		},
+		{
 			name:  "insecure",
 			input: "proximo://localhost:123/t1?insecure=true",
 			expected: AsyncMessageSinkConfig{
@@ -45,11 +70,20 @@ func TestProximoSink(t *testing.T) {
 			},
 			expectedErr: nil,
 		},
+		{
+			name:  "withdebug",
+			input: "proximo://localhost:123/t1?debug=true",
+			expected: AsyncMessageSinkConfig{
+				Broker: "localhost:123",
+				Topic:  "t1",
+				Debug:  true,
+			},
+			expectedErr: nil,
+		},
 	}
 
 	for _, tst := range tests {
 		t.Run(tst.name, func(t *testing.T) {
-
 			var conf AsyncMessageSinkConfig
 			proximoSinker = func(c AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
 				conf = c
@@ -64,7 +98,6 @@ func TestProximoSink(t *testing.T) {
 			assert.Equal(tst.expected, conf)
 		})
 	}
-
 }
 
 func TestProximoSource(t *testing.T) {
@@ -104,6 +137,30 @@ func TestProximoSource(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
+			name:  "with-keep-alive",
+			input: "proximo://localhost:123/t1?keep-alive-time=60m",
+			expected: AsyncMessageSourceConfig{
+				Broker: "localhost:123",
+				Topic:  "t1",
+				KeepAlive: &KeepAlive{
+					Time:    time.Minute * 60,
+					Timeout: time.Second * 10,
+				},
+			},
+		},
+		{
+			name:  "with-keep-alive-timeout",
+			input: "proximo://localhost:123/t1?keep-alive-time=60m&keep-alive-timeout=70s",
+			expected: AsyncMessageSourceConfig{
+				Broker: "localhost:123",
+				Topic:  "t1",
+				KeepAlive: &KeepAlive{
+					Time:    time.Minute * 60,
+					Timeout: time.Second * 70,
+				},
+			},
+		},
+		{
 			name:  "everything",
 			input: "proximo://localhost:123/t1/?offset=newest&consumer-group=g1",
 			expected: AsyncMessageSourceConfig{
@@ -118,7 +175,6 @@ func TestProximoSource(t *testing.T) {
 
 	for _, tst := range tests {
 		t.Run(tst.name, func(t *testing.T) {
-
 			var conf AsyncMessageSourceConfig
 			proximoSourcer = func(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
 				conf = c
@@ -133,5 +189,4 @@ func TestProximoSource(t *testing.T) {
 			assert.Equal(tst.expected, conf)
 		})
 	}
-
 }

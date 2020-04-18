@@ -13,8 +13,8 @@ import (
 
 	"github.com/Shopify/toxiproxy"
 	"github.com/google/uuid"
-	stan "github.com/nats-io/go-nats-streaming"
 	stand "github.com/nats-io/nats-streaming-server/server"
+	"github.com/nats-io/stan.go"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"github.com/uw-labs/substrate"
@@ -23,9 +23,7 @@ import (
 )
 
 func TestAll(t *testing.T) {
-
 	k, err := runServer()
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,8 +153,8 @@ loop3:
 		//
 		if err == nil {
 			break loop3
-			//ks.Kill()
-			//return nil, errors.New("what?")
+			// ks.Kill()
+			// return nil, errors.New("what?")
 		}
 		if err == cancelled.Err() {
 			break loop3
@@ -182,7 +180,6 @@ func (ks *testServer) canConsume(topic string, groupID string) error {
 }
 
 func TestConsumerErrorOnBackendDisconnect(t *testing.T) {
-
 	// seed nats with some test data
 	stanServerOpts := stand.GetDefaultOptions()
 	natsServerOpts := stand.DefaultNatsServerOptions
@@ -278,8 +275,8 @@ func TestProducerOnDisconnectedError(t *testing.T) {
 		ConnectionPingInterval: 1,
 		ConnectionNumPings:     3,
 	})
-	//hnd, err := newNatsStreamingProduceHandler(
-	//fmt.Sprintf("nats://%s", proxy.Listen), stand.DefaultClusterID, 1, 1, 3)
+	// hnd, err := newNatsStreamingProduceHandler(
+	// fmt.Sprintf("nats://%s", proxy.Listen), stand.DefaultClusterID, 1, 1, 3)
 	require.NoError(t, err)
 	success := make(chan struct{})
 	egrp, groupCtx := errgroup.WithContext(ctx)

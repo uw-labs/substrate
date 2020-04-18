@@ -16,7 +16,6 @@ import (
 )
 
 func TestAll(t *testing.T) {
-
 	k, err := runServer()
 	if err != nil {
 		t.Fatal(err)
@@ -40,7 +39,6 @@ func (ts *testServer) NewConsumer(topic string, groupID string) substrate.AsyncM
 		Offset:        OffsetOldest,
 		Insecure:      true,
 	})
-
 	if err != nil {
 		panic(err)
 	}
@@ -52,6 +50,7 @@ func (ts *testServer) NewProducer(topic string) substrate.AsyncMessageSink {
 		Broker:   fmt.Sprintf("localhost:%d", ts.port),
 		Topic:    topic,
 		Insecure: true,
+		Debug:    true,
 	})
 	if err != nil {
 		panic(err)
@@ -66,7 +65,6 @@ func (ts *testServer) Kill() error {
 }
 
 func runServer() (*testServer, error) {
-
 	cmd := exec.CommandContext(
 		context.Background(),
 		"proximo-server",

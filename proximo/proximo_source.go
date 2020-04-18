@@ -24,23 +24,27 @@ const (
 	OffsetNewest Offset = 2
 )
 
-var (
-	_ substrate.AsyncMessageSource = (*asyncMessageSource)(nil)
-)
+var _ substrate.AsyncMessageSource = (*asyncMessageSource)(nil)
 
 // AsyncMessageSource represents a proximo message source and implements the
 // substrate.AsyncMessageSource interface.
 type AsyncMessageSourceConfig struct {
-	ConsumerGroup string
-	Topic         string
-	Broker        string
-	Offset        Offset
-	Insecure      bool
+	ConsumerGroup  string
+	Topic          string
+	Broker         string
+	Offset         Offset
+	Insecure       bool
+	KeepAlive      *KeepAlive
+	MaxRecvMsgSize int
 }
 
 func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
-
-	conn, err := dialProximo(c.Broker, c.Insecure)
+	conn, err := dialProximo(dialConfig{
+		broker:         c.Broker,
+		insecure:       c.Insecure,
+		keepAlive:      c.KeepAlive,
+		maxRecvMsgSize: c.MaxRecvMsgSize,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +91,6 @@ func (cm *consMsg) getMsgID() string {
 }
 
 func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
-
 	rg, ctx := rungroup.New(ctx)
 	client := proto.NewMessageSourceClient(ams.conn)
 
@@ -169,7 +172,6 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 	})
 
 	return rg.Wait()
-
 }
 
 func (ams *asyncMessageSource) Status() (*substrate.Status, error) {

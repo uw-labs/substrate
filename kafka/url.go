@@ -31,6 +31,13 @@ func newKafkaSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 
 	conf.Brokers = append(conf.Brokers, q["broker"]...)
 
+	conf.Version = q.Get("version")
+
+	debug := q.Get("debug")
+	if debug == "true" {
+		conf.Debug = true
+	}
+
 	return kafkaSinker(conf)
 }
 
@@ -71,6 +78,16 @@ func newKafkaSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 		}
 		conf.MetadataRefreshFrequency = d
 	}
+	dur = q.Get("session-timeout")
+	if dur != "" {
+		d, err := time.ParseDuration(dur)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse session timeout : %v", err)
+		}
+		conf.SessionTimeout = d
+	}
+
+	conf.Version = q.Get("version")
 
 	return kafkaSourcer(conf)
 }

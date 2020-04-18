@@ -28,6 +28,8 @@ func NewAsyncMessageSink(sink substrate.AsyncMessageSink, counterOpts prometheus
 			panic(err)
 		}
 	}
+	counter.WithLabelValues("error", topic).Add(0)
+	counter.WithLabelValues("success", topic).Add(0)
 
 	return &AsyncMessageSink{
 		impl:    sink,
@@ -54,6 +56,11 @@ func (ams *AsyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 			case acks <- success:
 			case <-ctx.Done():
 				return <-errs
+			case err := <-errs:
+				if err != nil {
+					ams.counter.WithLabelValues("error", ams.topic).Inc()
+				}
+				return err
 			}
 		case <-ctx.Done():
 			return <-errs

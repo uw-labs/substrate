@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
@@ -71,7 +72,7 @@ func TestPublishMessagesSuccessfully(t *testing.T) {
 			return
 		case <-acks:
 			var metric dto.Metric
-			sink.counter.WithLabelValues("success", "testTopic").Write(&metric)
+			assert.NoError(t, sink.counter.WithLabelValues("success", "testTopic").Write(&metric))
 			assert.Equal(t, 1, int(*metric.Counter.Value))
 			sinkCancel()
 		}
@@ -122,7 +123,7 @@ func TestPublishMessagesWithError(t *testing.T) {
 			assert.Equal(t, producingError, err)
 
 			var metric dto.Metric
-			sink.counter.WithLabelValues("error", "testTopic").Write(&metric)
+			assert.NoError(t, sink.counter.WithLabelValues("error", "testTopic").Write(&metric))
 			assert.Equal(t, 1, int(*metric.Counter.Value))
 
 			sinkCancel()
@@ -130,5 +131,60 @@ func TestPublishMessagesWithError(t *testing.T) {
 		case <-acks:
 			t.Fatal("No message should be acknowldged")
 		}
+	}
+}
+
+func TestProduceOnBackendShutdown(t *testing.T) {
+	expectedErr := errors.New("shutdown")
+	backendCtx, backendCancel := context.WithCancel(context.Background())
+
+	source := AsyncMessageSink{
+		impl: &asyncMessageSinkMock{
+			publishMessageMock: func(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) error {
+				select {
+				case <-ctx.Done():
+					return nil
+				case acks <- Message{}:
+				}
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-backendCtx.Done():
+					return expectedErr
+				}
+			},
+		},
+		counter: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Help: "sink_counter",
+				Name: "sink_counter",
+			}, []string{"status", "topic"}),
+		topic: "testTopic",
+	}
+
+	acks := make(chan substrate.Message)
+	messages := make(chan substrate.Message)
+
+	sinkContext, sinkCancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer sinkCancel()
+
+	errs := make(chan error)
+	go func() {
+		defer close(errs)
+		errs <- source.PublishMessages(sinkContext, acks, messages)
+	}()
+
+	backendCancel() // Shutdown backend
+
+	// Check wrapper shuts down properly
+	select {
+	case <-sinkContext.Done():
+		t.Fatalf("Wrapper failed to shutdown.")
+	case err := <-errs:
+		assert.Equal(t, expectedErr, err)
+		// Check metric was increased
+		var metric dto.Metric
+		assert.NoError(t, source.counter.WithLabelValues("error", "testTopic").Write(&metric))
+		assert.Equal(t, 1, int(*metric.Counter.Value))
 	}
 }

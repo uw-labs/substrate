@@ -33,6 +33,7 @@ func TestSyncProduceAdapterBasic(t *testing.T) {
 	default:
 		t.Error("underlying async sink didn't get closed")
 	}
+	assert.Equal(ErrSinkAlreadyClosed, sc.PublishMessage(ctx, &m5))
 
 	assert.Equal(ErrSinkAlreadyClosed, sc.Close())
 	assert.Equal(ErrSinkAlreadyClosed, sc.PublishMessage(ctx, &m1))
@@ -61,7 +62,6 @@ type mockAsyncSink struct {
 
 func (mock *mockAsyncSink) PublishMessages(ctx context.Context, acks chan<- Message, messages <-chan Message) error {
 	for {
-
 		select {
 		case <-ctx.Done():
 			return ctx.Err()

@@ -46,7 +46,7 @@ func TestKafkaSink(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
-			name:  "everything",
+			name:  "port-and-brokers",
 			input: "kafka://localhost:123/t1/?broker=localhost:234&broker=localhost:345",
 			expected: AsyncMessageSinkConfig{
 				Brokers: []string{"localhost:123", "localhost:234", "localhost:345"},
@@ -54,11 +54,21 @@ func TestKafkaSink(t *testing.T) {
 			},
 			expectedErr: nil,
 		},
+		{
+			name:  "everything",
+			input: "kafka://localhost:123/t1/?broker=localhost:234&broker=localhost:345&version=2.2.0.0&debug=true",
+			expected: AsyncMessageSinkConfig{
+				Brokers: []string{"localhost:123", "localhost:234", "localhost:345"},
+				Topic:   "t1",
+				Version: "2.2.0.0",
+				Debug:   true,
+			},
+			expectedErr: nil,
+		},
 	}
 
 	for _, tst := range tests {
 		t.Run(tst.name, func(t *testing.T) {
-
 			var conf AsyncMessageSinkConfig
 			kafkaSinker = func(c AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
 				conf = c
@@ -73,7 +83,6 @@ func TestKafkaSink(t *testing.T) {
 			assert.Equal(tst.expected, conf)
 		})
 	}
-
 }
 
 func TestKafkaSource(t *testing.T) {
@@ -113,13 +122,15 @@ func TestKafkaSource(t *testing.T) {
 		},
 		{
 			name:  "everything",
-			input: "kafka://localhost:123/t1/?offset=newest&consumer-group=g1&metadata-refresh=2s&broker=localhost:234&broker=localhost:345",
+			input: "kafka://localhost:123/t1/?offset=newest&consumer-group=g1&metadata-refresh=2s&broker=localhost:234&broker=localhost:345&version=0.10.2.0&session-timeout=30s",
 			expected: AsyncMessageSourceConfig{
 				Brokers:                  []string{"localhost:123", "localhost:234", "localhost:345"},
 				ConsumerGroup:            "g1",
 				MetadataRefreshFrequency: 2 * time.Second,
+				SessionTimeout:           30 * time.Second,
 				Offset:                   sarama.OffsetNewest,
 				Topic:                    "t1",
+				Version:                  "0.10.2.0",
 			},
 			expectedErr: nil,
 		},
@@ -127,7 +138,6 @@ func TestKafkaSource(t *testing.T) {
 
 	for _, tst := range tests {
 		t.Run(tst.name, func(t *testing.T) {
-
 			var conf AsyncMessageSourceConfig
 			kafkaSourcer = func(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
 				conf = c
@@ -142,5 +152,4 @@ func TestKafkaSource(t *testing.T) {
 			assert.Equal(tst.expected, conf)
 		})
 	}
-
 }

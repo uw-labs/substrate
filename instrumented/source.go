@@ -26,6 +26,8 @@ func NewAsyncMessageSource(source substrate.AsyncMessageSource, counterOpts prom
 			panic(err)
 		}
 	}
+	counter.WithLabelValues("error", topic).Add(0)
+	counter.WithLabelValues("success", topic).Add(0)
 
 	return &AsyncMessageSource{
 		impl:    source,
@@ -51,6 +53,11 @@ func (ams *AsyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 			case toBeAcked <- ack:
 			case <-ctx.Done():
 				return <-errs
+			case err := <-errs:
+				if err != nil {
+					ams.counter.WithLabelValues("error", ams.topic).Inc()
+				}
+				return err
 			}
 			ams.counter.WithLabelValues("success", ams.topic).Inc()
 		case <-ctx.Done():

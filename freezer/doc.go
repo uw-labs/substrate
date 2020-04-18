@@ -18,5 +18,6 @@
 // The following url parameters are available:
 //
 //      compression - Specifies the type of compression to use.  Valid values are `none` and `snappy`. The default is `none`.
+//      max_unflushed - Specifies the maximum number of unflushed messages.  Default is 1024
 //
 package freezer
