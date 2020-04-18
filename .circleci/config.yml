@@ -1,22 +1,20 @@
 version: 2
 jobs:
   test:
-    working_directory: /go/src/github.com/uw-labs/substrate
+    working_directory: ~/app/substrate
     docker:
     - image: circleci/golang:1
     steps:
       - checkout
       - restore_cache:
           keys:
-            - v1-pkg-cache
-      - run: go get -u -v -t ./...
+            - go-mod-v1-{{ checksum "go.sum" }}
+      - run: go mod download
       - save_cache:
-          key: v1-pkg-cache
+          key: go-mod-v1-{{ checksum "go.sum" }}
           paths:
-            - "/go/pkg"
-      - setup_remote_docker:
-          version: 18.09.3
-      - run: go test -v ./...
+            - "/go/pkg/mod"
+      - run: go test -race -v ./...
 workflows:
   version: 2
   development:
