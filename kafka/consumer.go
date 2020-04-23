@@ -8,6 +8,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/hashicorp/go-multierror"
 	"github.com/uw-labs/substrate"
+	"github.com/uw-labs/substrate/internal/debug"
 	"github.com/uw-labs/sync/rungroup"
 )
 
@@ -32,6 +33,8 @@ type AsyncMessageSourceConfig struct {
 	OffsetsRetention         time.Duration
 	SessionTimeout           time.Duration
 	Version                  string
+
+	Debug bool
 }
 
 func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*sarama.Config, error) {
@@ -86,6 +89,10 @@ func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSo
 		client:        client,
 		consumerGroup: consumerGroup,
 		topic:         c.Topic,
+
+		debugger: debug.Debugger{
+			Enabled: c.Debug,
+		},
 	}, nil
 }
 
@@ -93,6 +100,8 @@ type asyncMessageSource struct {
 	client        sarama.Client
 	consumerGroup sarama.ConsumerGroup
 	topic         string
+
+	debugger debug.Debugger
 }
 
 type consumerMessage struct {
@@ -143,6 +152,7 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 			acks:        acks,
 			sessCh:      sessCh,
 			rebalanceCh: rebalanceCh,
+			debugger:    ams.debugger,
 		}
 		return ap.run(ctx)
 	})
@@ -154,6 +164,7 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 				toAck:       toAck,
 				sessCh:      sessCh,
 				rebalanceCh: rebalanceCh,
+				debugger:    ams.debugger,
 			})
 			if err != nil || ctx.Err() != nil {
 				return err

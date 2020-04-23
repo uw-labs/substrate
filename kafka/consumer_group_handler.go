@@ -5,6 +5,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/uw-labs/substrate"
+	"github.com/uw-labs/substrate/internal/debug"
 )
 
 type consumerGroupHandler struct {
@@ -12,6 +13,8 @@ type consumerGroupHandler struct {
 	toAck       chan<- *consumerMessage
 	sessCh      chan<- sarama.ConsumerGroupSession
 	rebalanceCh chan<- struct{}
+
+	debugger debug.Debugger
 }
 
 // Setup is run at the beginning of a new session, before ConsumeClaim.
@@ -70,6 +73,8 @@ type kafkaAcksProcessor struct {
 
 	sess      sarama.ConsumerGroupSession
 	forAcking []*consumerMessage
+
+	debugger debug.Debugger
 }
 
 func (ap *kafkaAcksProcessor) run(ctx context.Context) error {
