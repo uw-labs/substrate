@@ -31,6 +31,8 @@ func (d *Debugger) Logf(s string, args ...interface{}) {
 			args1[i] = messageHash(a.Data())
 		case *proto.Message:
 			args1[i] = messageHash(a.Data)
+		case []byte:
+			args1[i] = messageHash(a)
 		default:
 			args1[i] = arg
 		}

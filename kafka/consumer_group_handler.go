@@ -101,6 +101,7 @@ func (ap *kafkaAcksProcessor) run(ctx context.Context) error {
 			case ap.sess = <-ap.sessCh:
 			}
 		case msg := <-ap.fromKafka:
+			ap.debugger.Logf("substrate : got message from kafka : %s\n", msg)
 			if err := ap.processMessage(ctx, msg); err != nil {
 				if err == context.Canceled {
 					// This error is returned when a context cancellation is encountered
@@ -119,6 +120,11 @@ func (ap *kafkaAcksProcessor) run(ctx context.Context) error {
 }
 
 func (ap *kafkaAcksProcessor) processMessage(ctx context.Context, msg *consumerMessage) error {
+	var pl []byte
+	if ap.debugger.Enabled {
+		// grab the data now, because it may be discarded later.
+		pl = msg.Data()
+	}
 	for {
 		select {
 		case <-ctx.Done():
@@ -135,9 +141,11 @@ func (ap *kafkaAcksProcessor) processMessage(ctx context.Context, msg *consumerM
 			}
 			return nil // We can return immediately as the current message can be discarded.
 		case ap.toClient <- msg:
+			ap.debugger.Logf("substrate : sent message to caller : %s\n", pl)
 			ap.forAcking = append(ap.forAcking, msg)
 			return nil // We have passed the message to the client, so we can exit this loop.
 		case ack := <-ap.acks:
+			ap.debugger.Logf("substrate : got ack from caller for message : %s\n", msg)
 			// Still process acks, so that we don't block the consumer acknowledging the message.
 			if err := ap.processAck(ack); err != nil {
 				return err
@@ -165,12 +173,14 @@ func (ap *kafkaAcksProcessor) processAck(ack substrate.Message) error {
 		// Acknowledge the message.
 		if ap.forAcking[0].cm != nil {
 			ap.sess.MarkMessage(ap.forAcking[0].cm, "")
+			ap.debugger.Logf("substrate : sent ack to kafka for message : %s\n", ap.forAcking[0])
 		} else {
 			off := ap.forAcking[0].offset
 			// MarkOffset marks the next message to consume, so we need to add 1
 			// to the offset to mark this message as consumed. Note that the bsm cluster
 			// did this when committing offsets, so that's why it worked without this before.
 			ap.sess.MarkOffset(off.topic, off.partition, off.offset+1, "")
+			ap.debugger.Logf("substrate : sent ack to kafka for message : [payload not available]\n")
 		}
 		ap.forAcking = ap.forAcking[1:]
 	}
