@@ -112,6 +112,7 @@ func (ap *kafkaAcksProcessor) run(ctx context.Context) error {
 				return err
 			}
 		case ack := <-ap.acks:
+			ap.debugger.Logf("substrate : consumer - got ack from caller for message : %s\n", ack)
 			if err := ap.processAck(ack); err != nil {
 				return err
 			}
