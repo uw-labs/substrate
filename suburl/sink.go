@@ -28,7 +28,7 @@ func RegisterSink(scheme string, sinkFunc func(url *url.URL) (substrate.AsyncMes
 // NewSink will return a message sink based on the supplied URL.
 // Examples:
 //  kafka://localhost:123/my-topic/?metadata-refresh=2s&broker=localhost:234&broker=localhost:345
-//  nats-streaming://localhost:123/my-subject?cluster-id=cid-1&consumer-id=cons-1
+//  nats-streaming://localhost:123/my-subject?cluster-id=foo&client-id=bar
 func NewSink(u string) (substrate.AsyncMessageSink, error) {
 	parsed, err := url.Parse(u)
 	if err != nil {
