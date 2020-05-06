@@ -24,6 +24,10 @@ func (d *Debugger) Logf(s string, args ...interface{}) {
 	if !d.Enabled {
 		return
 	}
+	d.doLogf(s, args)
+}
+
+func (d *Debugger) doLogf(s string, args ...interface{}) {
 	args1 := make([]interface{}, len(args))
 	for i, arg := range args {
 		switch a := arg.(type) {
