@@ -150,6 +150,7 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 						Expected: forAcking[0],
 					}
 				default:
+					forAcking[0].(*consumerMessage).data = nil // Allow data to be GC'd
 					forAcking = forAcking[1:]
 				}
 			case <-ctx.Done():
