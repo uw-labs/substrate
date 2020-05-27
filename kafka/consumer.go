@@ -122,6 +122,24 @@ func (cm *consumerMessage) Data() []byte {
 	return cm.cm.Value
 }
 
+type MessageWithMetadata interface {
+	GetMetadata() Metadata
+}
+
+type Metadata struct {
+	Topic     string
+	Partition int32
+	Offset    int64
+}
+
+func (cm *consumerMessage) GetMetadata() Metadata {
+	return Metadata{
+		Topic:     cm.offset.topic,
+		Partition: cm.offset.partition,
+		Offset:    cm.offset.offset,
+	}
+}
+
 func (cm *consumerMessage) DiscardPayload() {
 	if cm.offset != nil {
 		// already discarded
