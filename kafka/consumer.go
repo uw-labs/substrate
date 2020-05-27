@@ -133,10 +133,13 @@ type Metadata struct {
 }
 
 func (cm *consumerMessage) GetMetadata() Metadata {
+	if cm.cm == nil {
+		panic("GetMetadata: attempt to use payload after discarding.")
+	}
 	return Metadata{
-		Topic:     cm.offset.topic,
-		Partition: cm.offset.partition,
-		Offset:    cm.offset.offset,
+		Topic:     cm.cm.Topic,
+		Partition: cm.cm.Partition,
+		Offset:    cm.cm.Offset,
 	}
 }
 
