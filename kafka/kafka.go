@@ -101,7 +101,7 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 			message.Metadata = m
 			input <- message
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case err := <-errs:
 			return err
 		}
@@ -274,18 +274,18 @@ func (ams *asyncMessageSource) passMessagesToClient(ctx context.Context, fromKaf
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case msg := <-fromKafka:
 			message := &consumerMessage{cm: msg}
 
 			select {
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			case toAck <- message:
 			}
 			select {
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			case messages <- message:
 			}
 		}

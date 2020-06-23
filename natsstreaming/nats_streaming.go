@@ -285,8 +285,7 @@ func handleAcks(ctx context.Context, msgsToAck chan *consumerMessage, acks <-cha
 			}
 			toAck = toAck[1:]
 		case <-ctx.Done():
-			//return ctx.Err()
-			return nil
+			return ctx.Err()
 		case e, ok := <-disconnected:
 			if ok {
 				return e

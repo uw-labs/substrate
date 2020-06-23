@@ -32,7 +32,7 @@ func TestConsumeMessagesSuccessfully(t *testing.T) {
 				for {
 					select {
 					case <-ctx.Done():
-						return nil
+						return ctx.Err()
 					case ack := <-acks:
 						receivedAcks <- ack
 					}
@@ -64,7 +64,7 @@ func TestConsumeMessagesSuccessfully(t *testing.T) {
 		case m := <-messages:
 			acks <- m
 		case err := <-errs:
-			assert.NoError(t, err)
+			assert.Equal(t, err, context.Canceled)
 			return
 		case <-receivedAcks:
 			var metric dto.Metric
@@ -125,7 +125,7 @@ func TestConsumeOnBackendShutdown(t *testing.T) {
 			consumerMessagesMock: func(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
 				select {
 				case <-ctx.Done():
-					return nil
+					return ctx.Err()
 				case <-backendCtx.Done():
 					return expectedErr
 				}

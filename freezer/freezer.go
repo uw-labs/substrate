@@ -46,7 +46,7 @@ func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case m := <-messages:
 			if !t.Stop() {
 				select {
@@ -66,7 +66,7 @@ func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 			for _, m := range toAck {
 				select {
 				case <-ctx.Done():
-					return nil
+					return ctx.Err()
 				case acks <- m:
 				}
 			}

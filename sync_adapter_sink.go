@@ -75,13 +75,13 @@ func (spa *synchronousMessageSinkAdapter) loop() {
 		for {
 			select {
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			case pr := <-spa.toProduce:
 				seq++
 				needAcks[seq] = pr
 				select {
 				case <-ctx.Done():
-					return nil
+					return ctx.Err()
 				case toSend <- seqMessage{seq: seq, Message: pr.m}:
 				case <-spa.closeReq:
 					return nil

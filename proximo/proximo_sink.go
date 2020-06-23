@@ -92,7 +92,7 @@ func (ams *asyncMessageSink) sendMessagesToProximo(ctx context.Context, stream m
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case msg := <-messages:
 			pMsg := &proto.Message{
 				Id:   uuid.Must(uuid.NewV4()).String(),
@@ -100,7 +100,7 @@ func (ams *asyncMessageSink) sendMessagesToProximo(ctx context.Context, stream m
 			}
 			select {
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			case toAck <- &ackMessage{id: pMsg.Id, msg: msg}:
 			}
 			if err := stream.Send(&proto.PublisherRequest{Msg: pMsg}); err != nil {
@@ -128,7 +128,7 @@ func (ams *asyncMessageSink) receiveAcksFromProximo(ctx context.Context, stream 
 		}
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case proximoAcks <- conf.MsgID:
 		}
 	}
@@ -139,7 +139,7 @@ func (ams *asyncMessageSink) passAcksToUser(ctx context.Context, acks chan<- sub
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case ack := <-toAck:
 			ackMap[ack.id] = ack.msg
 		case msgID := <-proximoAcks:
@@ -151,7 +151,7 @@ func (ams *asyncMessageSink) passAcksToUser(ctx context.Context, acks chan<- sub
 			for !sent {
 				select {
 				case <-ctx.Done():
-					return nil
+					return ctx.Err()
 				case ack := <-toAck:
 					ackMap[ack.id] = ack.msg
 				case acks <- msg:

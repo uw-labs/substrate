@@ -146,7 +146,7 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 					toAckList = toAckList[1:]
 				}
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			}
 		}
 	})
@@ -165,12 +165,12 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 			select {
 			case toAck <- m:
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			}
 			select {
 			case messages <- m:
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			}
 		}
 	})

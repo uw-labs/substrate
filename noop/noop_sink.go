@@ -22,10 +22,10 @@ func (ams asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- sub
 			select {
 			case acks <- msg:
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			}
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		}
 	}
 }

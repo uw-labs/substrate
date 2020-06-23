@@ -36,7 +36,7 @@ func TestPublishMessagesSuccessfully(t *testing.T) {
 				for {
 					select {
 					case <-ctx.Done():
-						return nil
+						return ctx.Err()
 					case msg := <-messages:
 						acks <- msg
 					}
@@ -68,7 +68,7 @@ func TestPublishMessagesSuccessfully(t *testing.T) {
 	for {
 		select {
 		case err := <-errs:
-			assert.NoError(t, err)
+			assert.Equal(t, err, context.Canceled)
 			return
 		case <-acks:
 			var metric dto.Metric
@@ -87,7 +87,7 @@ func TestPublishMessagesWithError(t *testing.T) {
 				for {
 					select {
 					case <-ctx.Done():
-						return nil
+						return ctx.Err()
 					case <-messages:
 						return producingError
 					}
@@ -143,12 +143,12 @@ func TestProduceOnBackendShutdown(t *testing.T) {
 			publishMessageMock: func(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) error {
 				select {
 				case <-ctx.Done():
-					return nil
+					return ctx.Err()
 				case acks <- Message{}:
 				}
 				select {
 				case <-ctx.Done():
-					return nil
+					return ctx.Err()
 				case <-backendCtx.Done():
 					return expectedErr
 				}

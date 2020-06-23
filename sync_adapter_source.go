@@ -40,10 +40,10 @@ func (a *synchronousMessageSourceAdapter) ConsumeMessages(ctx context.Context, h
 				select {
 				case acks <- msg:
 				case <-ctx.Done():
-					return nil
+					return ctx.Err()
 				}
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			}
 		}
 	})
