@@ -58,21 +58,22 @@ type asyncMessageSink struct {
 	debugger debug.Debugger
 }
 
-func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
+func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) error {
 	producer, err := sarama.NewAsyncProducerFromClient(ams.client)
 	if err != nil {
 		return err
 	}
 
 	err = ams.doPublishMessages(ctx, producer, acks, messages)
-	if err != nil {
-		_ = producer.Close()
-		return err
+
+	if closeErr := producer.Close(); closeErr != nil {
+		return closeErr
 	}
-	return producer.Close()
+
+	return err
 }
 
-func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sarama.AsyncProducer, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
+func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sarama.AsyncProducer, acks chan<- substrate.Message, messages <-chan substrate.Message) error {
 	input := producer.Input()
 	errs := producer.Errors()
 	successes := producer.Successes()
@@ -127,10 +128,7 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 		}
 	})
 
-	if err := eg.Wait(); err != nil && err != context.Canceled {
-		return err
-	}
-	return nil
+	return eg.Wait()
 }
 
 func (ams *asyncMessageSink) Status() (*substrate.Status, error) {

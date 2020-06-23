@@ -45,7 +45,7 @@ func TestAckOrderingSink(t *testing.T) {
 	cancel()
 
 	err := eg.Wait()
-	assert.NoError(err)
+	assert.EqualError(err, "context canceled")
 }
 
 type myMessage struct {

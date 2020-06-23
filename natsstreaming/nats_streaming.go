@@ -79,7 +79,7 @@ type asyncMessageSink struct {
 	connectionLost chan error
 }
 
-func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
+func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -93,7 +93,6 @@ func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- subs
 		for {
 			select {
 			case <-ctx.Done():
-				// return ctx.Err()
 				break LOOP
 			case msg := <-messages:
 				_, err := conn.PublishAsync(p.subject, msg.Data(), func(guid string, err error) {
@@ -115,7 +114,7 @@ func (p *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- subs
 	}()
 	select {
 	case <-ctx.Done():
-		return
+		return ctx.Err()
 	case ne := <-natsAckErrs:
 		return ne
 	case pe := <-publishErr:
@@ -283,8 +282,7 @@ func handleAcks(ctx context.Context, msgsToAck chan *consumerMessage, acks <-cha
 			}
 			toAck = toAck[1:]
 		case <-ctx.Done():
-			// return ctx.Err()
-			return nil
+			return ctx.Err()
 		case e, ok := <-disconnected:
 			if ok {
 				return e

@@ -79,10 +79,7 @@ func (s *AckOrderingSink) PublishMessages(ctx context.Context, acks chan<- subst
 		}
 	})
 
-	if err := eg.Wait(); err != nil && err != context.Canceled {
-		return err
-	}
-	return nil
+	return eg.Wait()
 }
 
 func contains(msgs map[substrate.Message]struct{}, msg substrate.Message) bool {

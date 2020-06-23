@@ -95,10 +95,10 @@ func testOnePublisherOneMessageOneConsumer(t *testing.T, ts TestServer) {
 
 	// we're done
 	cancel()
-	if err := <-consErrs; err != nil {
+	if err := <-consErrs; err != context.Canceled {
 		t.Errorf("unexpected error from consume : %s", err)
 	}
-	if err := <-prodErrs; err != nil {
+	if err := <-prodErrs; err != context.Canceled {
 		t.Errorf("unexpected error from produce : %s", err)
 	}
 }
@@ -127,7 +127,7 @@ func testOnePublisherOneConsumerConsumeWithoutAcking(t *testing.T, ts TestServer
 	produceAndCheckAck(prodCtx, t, prodMsgs, prodAcks, &m)
 	prodCancel()
 
-	if err := <-prodErrs; err != nil {
+	if err := <-prodErrs; err != context.Canceled {
 		t.Errorf("unexpected error from produce : %s", err)
 	}
 	if err := prod.Close(); err != nil {
@@ -146,7 +146,7 @@ func testOnePublisherOneConsumerConsumeWithoutAcking(t *testing.T, ts TestServer
 	m1 := <-cons1Msgs
 	assert.Equal(messageText, string(m1.Data()))
 	cons1Cancel()
-	if err := <-cons1Errs; err != nil {
+	if err := <-cons1Errs; err != context.Canceled {
 		t.Errorf("unexpected error from consume : %s", err)
 	}
 
@@ -163,7 +163,7 @@ func testOnePublisherOneConsumerConsumeWithoutAcking(t *testing.T, ts TestServer
 	assert.Equal(messageText, msgStr)
 
 	cons2Cancel()
-	if err := <-cons2Errs; err != nil {
+	if err := <-cons2Errs; err != context.Canceled {
 		t.Errorf("unexpected error from consume : %s", err)
 	}
 
@@ -210,7 +210,7 @@ func testOnePublisherOneMessageTwoConsumers(t *testing.T, ts TestServer) {
 
 	// we're done
 	cancel()
-	if err := <-cons1Errs; err != nil {
+	if err := <-cons1Errs; err != context.Canceled {
 		t.Errorf("unexpected error from consume : %s", err)
 	}
 }
@@ -365,7 +365,7 @@ func testConsumeWithoutAck(t *testing.T, ts TestServer) {
 	select {
 	case <-cons1Msgs:
 	case err := <-cons1Errs:
-		if err != nil {
+		if err != context.Canceled {
 			t.Error(err) // TODO: prolly not.
 		}
 	}
@@ -386,7 +386,7 @@ func testConsumeWithoutAck(t *testing.T, ts TestServer) {
 
 	// we're done
 	cancel()
-	if err := <-cons2Errs; err != nil {
+	if err := <-cons2Errs; err != context.Canceled {
 		t.Errorf("unexpected error from consume : %s", err)
 	}
 }
@@ -462,10 +462,10 @@ func testPublishMultipleMessagesOneConsumer(t *testing.T, ts TestServer) {
 
 	// we're done
 	cancel()
-	if err := <-consErrs; err != nil {
+	if err := <-consErrs; err != context.Canceled {
 		t.Errorf("unexpected error from consume : %s", err)
 	}
-	if err := <-prodErrs; err != nil {
+	if err := <-prodErrs; err != context.Canceled {
 		t.Errorf("unexpected error from produce : %s", err)
 	}
 }
@@ -494,7 +494,7 @@ func testOnePublisherOneConsumerConsumeWithoutAckingDiscardedPayload(t *testing.
 	produceAndCheckAck(prodCtx, t, prodMsgs, prodAcks, &m)
 	prodCancel()
 
-	if err := <-prodErrs; err != nil {
+	if err := <-prodErrs; err != context.Canceled {
 		t.Errorf("unexpected error from produce : %s", err)
 	}
 	if err := prod.Close(); err != nil {
@@ -513,7 +513,7 @@ func testOnePublisherOneConsumerConsumeWithoutAckingDiscardedPayload(t *testing.
 	m1 := <-cons1Msgs
 	assert.Equal(messageText, string(m1.Data()))
 	cons1Cancel()
-	if err := <-cons1Errs; err != nil {
+	if err := <-cons1Errs; err != context.Canceled {
 		t.Errorf("unexpected error from consume : %s", err)
 	}
 
@@ -530,7 +530,7 @@ func testOnePublisherOneConsumerConsumeWithoutAckingDiscardedPayload(t *testing.
 	assert.Equal(messageText, msgStr)
 
 	cons2Cancel()
-	if err := <-cons2Errs; err != nil {
+	if err := <-cons2Errs; err != context.Canceled {
 		t.Errorf("unexpected error from consume : %s", err)
 	}
 
@@ -554,7 +554,7 @@ func connectSendmessageAndClose(t *testing.T, ts TestServer, topic string, messa
 	message := testMessage([]byte(messageText))
 	produceAndCheckAck(ctx, t, prodMsgs, prodAcks, &message)
 	cancel()
-	if err := <-prodErrs; err != nil {
+	if err := <-prodErrs; err != context.Canceled {
 		t.Errorf("unexpected error from produce : %s", err)
 	}
 	if err := prod.Close(); err != nil {

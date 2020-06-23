@@ -111,7 +111,9 @@ func (ams *asyncMessageSink) sendMessagesToProximo(ctx context.Context, stream m
 			}
 			if err := stream.Send(&proto.PublisherRequest{Msg: pMsg}); err != nil {
 				if err == io.EOF || status.Code(err) == codes.Canceled {
-					return nil
+					if ctx.Err() != nil {
+						return ctx.Err()
+					}
 				}
 				return errors.Wrap(err, "failed to send message to proximo")
 			}
@@ -129,7 +131,9 @@ func (ams *asyncMessageSink) receiveAcksFromProximo(ctx context.Context, stream 
 		conf, err := stream.Recv()
 		if err != nil {
 			if err == io.EOF || status.Code(err) == codes.Canceled {
-				return nil
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
 			}
 			return errors.Wrap(err, "failed to receive acknowledgement")
 		}
