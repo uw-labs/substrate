@@ -135,14 +135,16 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 					id := toAckList[0].getMsgID()
 					if err := stream.Send(&proto.ConsumerRequest{Confirmation: &proto.Confirmation{MsgID: id}}); err != nil {
 						if err == io.EOF || status.Code(err) == codes.Canceled {
-							return nil
+							if ctx.Err() != nil {
+								return ctx.Err()
+							}
 						}
 						return err
 					}
 					toAckList = toAckList[1:]
 				}
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			}
 		}
 	})
@@ -152,7 +154,9 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 			in, err := stream.Recv()
 			if err != nil {
 				if err == io.EOF || status.Code(err) == codes.Canceled {
-					return nil
+					if ctx.Err() != nil {
+						return ctx.Err()
+					}
 				}
 				return err
 			}
@@ -161,12 +165,12 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 			select {
 			case toAck <- m:
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			}
 			select {
 			case messages <- m:
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			}
 		}
 	})

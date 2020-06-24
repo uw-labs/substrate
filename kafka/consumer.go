@@ -166,8 +166,11 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 				rebalanceCh: rebalanceCh,
 				debugger:    ams.debugger,
 			})
-			if err != nil || ctx.Err() != nil {
+			if err != nil {
 				return err
+			}
+			if ctx.Err() != nil {
+				return ctx.Err()
 			}
 		}
 	})

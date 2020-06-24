@@ -81,14 +81,14 @@ func (ap *kafkaAcksProcessor) run(ctx context.Context) error {
 	// First set session, so that we can acknowledge messages.
 	select {
 	case <-ctx.Done():
-		return nil
+		return ctx.Err()
 	case ap.sess = <-ap.sessCh:
 	}
 
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case <-ap.rebalanceCh:
 			// Mark all pending messages to be discarded, as rebalance happened.
 			for _, msg := range ap.forAcking {
@@ -97,18 +97,12 @@ func (ap *kafkaAcksProcessor) run(ctx context.Context) error {
 			// Wait for the new session.
 			select {
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			case ap.sess = <-ap.sessCh:
 			}
 		case msg := <-ap.fromKafka:
 			ap.debugger.Logf("substrate : consumer - got message from kafka : %s\n", msg)
 			if err := ap.processMessage(ctx, msg); err != nil {
-				if err == context.Canceled {
-					// This error is returned when a context cancellation is encountered
-					// before the message was sent to the client so, we just return nil,
-					// as we do in other context cancellation cases.
-					return nil
-				}
 				return err
 			}
 		case ack := <-ap.acks:

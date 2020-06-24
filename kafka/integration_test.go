@@ -109,8 +109,8 @@ func (ks *testServer) testRebalance(t *testing.T) {
 	time.Sleep(time.Second * 5) // Sleep to read all remaining messages.
 	c2Cancel()
 
-	require.NoError(t, <-c1Err)
-	require.NoError(t, <-c2Err)
+	require.Equal(t, context.Canceled, <-c1Err)
+	require.Equal(t, context.Canceled, <-c2Err)
 
 	var actualMsgs []string
 	for msg := range c1Msgs {

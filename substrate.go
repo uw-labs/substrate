@@ -32,6 +32,8 @@ type AsyncMessageSink interface {
 	// been published.  This function will block until `ctx` is done,
 	// or until an error occurs.  Messages will always be processed
 	// and acknowledged in order.
+	// Normal termination is achieved when the passed Context is done,
+	// and will return the associated Context error.
 	PublishMessages(ctx context.Context, acks chan<- Message, messages <-chan Message) error
 	// Close permanently closes the AsyncMessageSink and frees underlying resources
 	Close() error
@@ -46,6 +48,8 @@ type AsyncMessageSource interface {
 	// channel and expects them to be sent back to the `acks` channel once
 	// that have been handled properly.  This function will block until
 	// `ctx` is done, or until an error occurs.
+	// Normal termination is achieved when the passed Context is done,
+	// and will return the associated Context error.
 	ConsumeMessages(ctx context.Context, messages chan<- Message, acks <-chan Message) error
 	// Close permanently closes the AsyncMessageSource and frees underlying resources
 	Close() error

@@ -98,7 +98,7 @@ func (ams *asyncMessageSink) sendMessagesToProximo(ctx context.Context, stream m
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case msg := <-messages:
 			pMsg := &proto.Message{
 				Id:   uuid.Must(uuid.NewV4()).String(),
@@ -106,12 +106,14 @@ func (ams *asyncMessageSink) sendMessagesToProximo(ctx context.Context, stream m
 			}
 			select {
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			case toAck <- &ackMessage{id: pMsg.Id, msg: msg}:
 			}
 			if err := stream.Send(&proto.PublisherRequest{Msg: pMsg}); err != nil {
 				if err == io.EOF || status.Code(err) == codes.Canceled {
-					return nil
+					if ctx.Err() != nil {
+						return ctx.Err()
+					}
 				}
 				return errors.Wrap(err, "failed to send message to proximo")
 			}
@@ -129,13 +131,15 @@ func (ams *asyncMessageSink) receiveAcksFromProximo(ctx context.Context, stream 
 		conf, err := stream.Recv()
 		if err != nil {
 			if err == io.EOF || status.Code(err) == codes.Canceled {
-				return nil
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
 			}
 			return errors.Wrap(err, "failed to receive acknowledgement")
 		}
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case proximoAcks <- conf.MsgID:
 			ams.debugger.Logf("substrate : got ack msgid from proximo %s\n", conf.MsgID)
 		}
@@ -147,7 +151,7 @@ func (ams *asyncMessageSink) passAcksToUser(ctx context.Context, acks chan<- sub
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case ack := <-toAck:
 			ackMap[ack.id] = ack.msg
 		case msgID := <-proximoAcks:
@@ -159,7 +163,7 @@ func (ams *asyncMessageSink) passAcksToUser(ctx context.Context, acks chan<- sub
 			for !sent {
 				select {
 				case <-ctx.Done():
-					return nil
+					return ctx.Err()
 				case ack := <-toAck:
 					ackMap[ack.id] = ack.msg
 				case acks <- msg:
