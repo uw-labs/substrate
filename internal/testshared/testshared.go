@@ -99,7 +99,7 @@ func testOnePublisherOneMessageOneConsumer(t *testing.T, ts TestServer) {
 		t.Errorf("unexpected error from consume : %s", err)
 	}
 	if err := <-prodErrs; err != nil {
-		t.Errorf("unexpected error from consume : %s", err)
+		t.Errorf("unexpected error from produce : %s", err)
 	}
 }
 
@@ -128,7 +128,7 @@ func testOnePublisherOneConsumerConsumeWithoutAcking(t *testing.T, ts TestServer
 	prodCancel()
 
 	if err := <-prodErrs; err != nil {
-		t.Errorf("unexpected error from consume : %s", err)
+		t.Errorf("unexpected error from produce : %s", err)
 	}
 	if err := prod.Close(); err != nil {
 		t.Errorf("unexpected error closing producer: %s", err)
@@ -240,7 +240,7 @@ func testPublisherShouldNotBlock(t *testing.T, ts TestServer) {
 		case <-prodAcks:
 		case err := <-prodErrs:
 			if err != nil {
-				t.Errorf("unexpected error from consume : %s", err)
+				t.Errorf("unexpected error from produce : %s", err)
 			}
 		case <-ctx.Done():
 			t.Fatal("Producer should not block")
@@ -466,7 +466,7 @@ func testPublishMultipleMessagesOneConsumer(t *testing.T, ts TestServer) {
 		t.Errorf("unexpected error from consume : %s", err)
 	}
 	if err := <-prodErrs; err != nil {
-		t.Errorf("unexpected error from consume : %s", err)
+		t.Errorf("unexpected error from produce : %s", err)
 	}
 }
 
@@ -495,7 +495,7 @@ func testOnePublisherOneConsumerConsumeWithoutAckingDiscardedPayload(t *testing.
 	prodCancel()
 
 	if err := <-prodErrs; err != nil {
-		t.Errorf("unexpected error from consume : %s", err)
+		t.Errorf("unexpected error from produce : %s", err)
 	}
 	if err := prod.Close(); err != nil {
 		t.Errorf("unexpected error closing producer: %s", err)
@@ -555,7 +555,7 @@ func connectSendmessageAndClose(t *testing.T, ts TestServer, topic string, messa
 	produceAndCheckAck(ctx, t, prodMsgs, prodAcks, &message)
 	cancel()
 	if err := <-prodErrs; err != nil {
-		t.Errorf("unexpected error from consume : %s", err)
+		t.Errorf("unexpected error from produce : %s", err)
 	}
 	if err := prod.Close(); err != nil {
 		t.Errorf("unexpected error closing producer: %s", err)
