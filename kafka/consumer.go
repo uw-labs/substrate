@@ -105,8 +105,7 @@ type asyncMessageSource struct {
 }
 
 type consumerMessage struct {
-	cm *sarama.ConsumerMessage
-
+	cm      *sarama.ConsumerMessage
 	discard bool
 	offset  *struct {
 		topic     string
@@ -120,6 +119,10 @@ func (cm *consumerMessage) Data() []byte {
 		panic("attempt to use payload after discarding.")
 	}
 	return cm.cm.Value
+}
+
+func (cm consumerMessage) Key() []byte {
+	return cm.cm.Key
 }
 
 func (cm *consumerMessage) DiscardPayload() {

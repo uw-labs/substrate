@@ -29,6 +29,10 @@ func (m Message) Data() []byte {
 	return m.data
 }
 
+func (m Message) Key() []byte {
+	return nil
+}
+
 func TestPublishMessagesSuccessfully(t *testing.T) {
 	sink := AsyncMessageSink{
 		impl: &asyncMessageSinkMock{

@@ -235,3 +235,7 @@ type message struct {
 func (msg *message) Data() []byte {
 	return msg.data
 }
+
+func (msg message) Key() []byte {
+	return nil
+}

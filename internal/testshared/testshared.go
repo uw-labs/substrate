@@ -57,6 +57,10 @@ func (m *testMessage) Data() []byte {
 	return []byte(*m)
 }
 
+func (m testMessage) Key() []byte {
+	return nil
+}
+
 func testOnePublisherOneMessageOneConsumer(t *testing.T, ts TestServer) {
 	assert := assert.New(t)
 

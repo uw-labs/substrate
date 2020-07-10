@@ -56,6 +56,10 @@ func (m *myMessage) Data() []byte {
 	return []byte{m.num}
 }
 
+func (m myMessage) Key() []byte {
+	return nil
+}
+
 type mockSink struct{}
 
 func (s *mockSink) Close() error {

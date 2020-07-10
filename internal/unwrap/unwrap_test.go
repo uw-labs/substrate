@@ -36,6 +36,10 @@ func (msg *message) Data() []byte {
 	return msg.data
 }
 
+func (msg message) Key() []byte {
+	return nil
+}
+
 type annotatedMessage struct {
 	annotation int
 	original   substrate.Message
@@ -43,6 +47,10 @@ type annotatedMessage struct {
 
 func (msg *annotatedMessage) Data() []byte {
 	return msg.original.Data()
+}
+
+func (msg annotatedMessage) Key() []byte {
+	return nil
 }
 
 func (msg *annotatedMessage) Original() substrate.Message {

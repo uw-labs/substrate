@@ -199,3 +199,7 @@ type consumerMessage struct {
 func (cm *consumerMessage) Data() []byte {
 	return cm.data
 }
+
+func (cm *consumerMessage) Key() []byte {
+	return nil
+}

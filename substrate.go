@@ -8,6 +8,8 @@ import (
 // Message is the single type that represents all messages in substrate.
 type Message interface {
 	Data() []byte
+	// Key is used as the partition key for messages
+	Key() []byte
 }
 
 // DiscardableMessage allows a consumer to discard the payload after use (but

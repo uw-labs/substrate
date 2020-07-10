@@ -2,13 +2,13 @@ package kafka
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/Shopify/sarama"
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/internal/debug"
 	"github.com/uw-labs/substrate/internal/helper"
-	"github.com/uw-labs/substrate/internal/unwrap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -17,11 +17,22 @@ var (
 	_ substrate.AsyncMessageSource = (*asyncMessageSource)(nil)
 )
 
+type Partitioner uint8
+
+const (
+	// PartitionerRoundRobin is used by default. It ensures that messages are
+	// sunk to topic partitions in a round robin fashion.
+	PartitionerRoundRobin Partitioner = iota
+	// PartitionerHash should be used when you intend to provide a partition key
+	// for messages.
+	PartitionerHash
+)
+
 type AsyncMessageSinkConfig struct {
 	Brokers         []string
 	Topic           string
 	MaxMessageBytes int
-	KeyFunc         func(substrate.Message) []byte
+	Partitioner     Partitioner
 	Version         string
 
 	Debug bool
@@ -39,9 +50,9 @@ func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageS
 	}
 
 	sink := asyncMessageSink{
-		client:  client,
-		Topic:   config.Topic,
-		KeyFunc: config.KeyFunc,
+		partitioner: config.Partitioner,
+		client:      client,
+		Topic:       config.Topic,
 
 		debugger: debug.Debugger{
 			Enabled: config.Debug,
@@ -51,11 +62,10 @@ func NewAsyncMessageSink(config AsyncMessageSinkConfig) (substrate.AsyncMessageS
 }
 
 type asyncMessageSink struct {
-	client  sarama.Client
-	Topic   string
-	KeyFunc func(substrate.Message) []byte
-
-	debugger debug.Debugger
+	partitioner Partitioner
+	client      sarama.Client
+	Topic       string
+	debugger    debug.Debugger
 }
 
 func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) error {
@@ -107,10 +117,11 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 
 				message.Value = sarama.ByteEncoder(m.Data())
 
-				if ams.KeyFunc != nil {
-					// Provide original user message to the partition key function.
-					unwrappedMsg := unwrap.Unwrap(m)
-					message.Key = sarama.ByteEncoder(ams.KeyFunc(unwrappedMsg))
+				if m.Key() != nil {
+					if ams.partitioner != PartitionerHash {
+						return fmt.Errorf("message with non-nil Key func, but sink using RoundRobin partitioner")
+					}
+					message.Key = sarama.ByteEncoder(m.Key())
 				}
 
 				message.Metadata = m
@@ -150,10 +161,11 @@ func (ams *AsyncMessageSinkConfig) buildSaramaProducerConfig() (*sarama.Config, 
 		conf.Producer.MaxMessageBytes = int(ams.MaxMessageBytes)
 	}
 
-	if ams.KeyFunc != nil {
-		conf.Producer.Partitioner = sarama.NewHashPartitioner
-	} else {
+	switch ams.Partitioner {
+	default:
 		conf.Producer.Partitioner = sarama.NewRoundRobinPartitioner
+	case PartitionerHash:
+		conf.Producer.Partitioner = sarama.NewHashPartitioner
 	}
 
 	if ams.Version != "" {

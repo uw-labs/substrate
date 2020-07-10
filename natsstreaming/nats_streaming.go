@@ -198,6 +198,10 @@ func (cm *consumerMessage) Data() []byte {
 	return cm.m.Data
 }
 
+func (cm *consumerMessage) Key() []byte {
+	return nil
+}
+
 func (c *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
 	msgsToAck := make(chan *consumerMessage)
 

@@ -76,6 +76,10 @@ func (cm *consMsg) Data() []byte {
 	return cm.pm.Data
 }
 
+func (cm consMsg) Key() []byte {
+	return nil
+}
+
 func (cm *consMsg) DiscardPayload() {
 	if cm.pm != nil {
 		cm.id = cm.pm.GetId()

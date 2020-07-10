@@ -15,6 +15,10 @@ func (m *message) Data() []byte {
 	return []byte(*m)
 }
 
+func (m message) Key() []byte {
+	return nil
+}
+
 func TestSyncConsumeAdapterBasic(t *testing.T) {
 	assert := assert.New(t)
 
