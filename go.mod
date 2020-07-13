@@ -3,7 +3,7 @@ module github.com/uw-labs/substrate
 go 1.13
 
 require (
-	github.com/Shopify/sarama v1.26.1
+	github.com/Shopify/sarama v1.26.4
 	github.com/Shopify/toxiproxy v2.1.4+incompatible
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/google/uuid v1.1.1
