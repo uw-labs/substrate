@@ -1,6 +1,6 @@
 module github.com/uw-labs/substrate
 
-go 1.13
+go 1.14
 
 require (
 	github.com/Shopify/sarama v1.26.4
