@@ -10,6 +10,14 @@ type Message interface {
 	Data() []byte
 }
 
+// Some brokers have the notion of keyed messages. Callers may optionally
+// implement this interface in their message types for the benefiy of those
+// brokers.
+type KeyedMessage interface {
+	Message
+	Key() []byte
+}
+
 // DiscardableMessage allows a consumer to discard the payload after use (but
 // before acking) in order to release memory earlier.  This can be useful in
 // cases where a consumer reads a very large number of messages before acking

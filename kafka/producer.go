@@ -107,10 +107,16 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 
 				message.Value = sarama.ByteEncoder(m.Data())
 
+				// Get original user message if wrapped
+				unwrappedMsg := unwrap.Unwrap(m)
 				if ams.KeyFunc != nil {
 					// Provide original user message to the partition key function.
-					unwrappedMsg := unwrap.Unwrap(m)
 					message.Key = sarama.ByteEncoder(ams.KeyFunc(unwrappedMsg))
+				} else {
+					// No user specified key func, check for keyed message type
+					if km, ok := unwrappedMsg.(substrate.KeyedMessage); ok {
+						message.Key = sarama.ByteEncoder(km.Key())
+					}
 				}
 
 				message.Metadata = m
