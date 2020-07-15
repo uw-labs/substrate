@@ -116,6 +116,9 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 					// No user specified key func, check for keyed message type
 					if km, ok := unwrappedMsg.(substrate.KeyedMessage); ok {
 						message.Key = sarama.ByteEncoder(km.Key())
+					} else {
+						// Use the whole message as the hash key
+						message.Key = sarama.ByteEncoder(unwrappedMsg.Data())
 					}
 				}
 
@@ -156,11 +159,7 @@ func (ams *AsyncMessageSinkConfig) buildSaramaProducerConfig() (*sarama.Config, 
 		conf.Producer.MaxMessageBytes = int(ams.MaxMessageBytes)
 	}
 
-	if ams.KeyFunc != nil {
-		conf.Producer.Partitioner = sarama.NewHashPartitioner
-	} else {
-		conf.Producer.Partitioner = sarama.NewRoundRobinPartitioner
-	}
+	conf.Producer.Partitioner = sarama.NewHashPartitioner
 
 	if ams.Version != "" {
 		version, err := sarama.ParseKafkaVersion(ams.Version)
