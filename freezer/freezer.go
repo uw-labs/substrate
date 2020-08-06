@@ -197,5 +197,12 @@ type consumerMessage struct {
 }
 
 func (cm *consumerMessage) Data() []byte {
+	if cm.data == nil {
+		panic("attempt to use payload after discarding.")
+	}
 	return cm.data
+}
+
+func (cm *consumerMessage) DiscardPayload() {
+	cm.data = nil
 }
