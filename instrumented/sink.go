@@ -75,15 +75,15 @@ func (ams *AsyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 }
 
 func isUnexpectedError(err error) bool {
-	if err == nil {
+	switch {
+	case err == nil:
 		return false
-	}
-	// we're expecting producers to mark the stopping of producing by cancelling the context
-	if errors.Is(err, context.Canceled) {
+	case errors.Is(err, context.Canceled):
+		// we're expecting producers to mark the stopping of producing by cancelling the context
 		return false
+	default:
+		return true
 	}
-
-	return true
 }
 
 // Close closes the message sink
