@@ -17,3 +17,7 @@ Current implementations and their status
 | Proximo                                  | alpha         |
 | Freezer                                  | alpha         |
 
+Additional resources
+----------------------------------------
+
+* [substrate-tools](https://github.com/uw-labs/substrate-tools) - Provides wrappers and packages that are useful for various tasks, such as acknowledgement ordering and instrumentation.
