@@ -16,6 +16,7 @@ Current implementations and their status
 | Nats streaming                           | beta          |
 | Proximo                                  | alpha         |
 | Freezer                                  | alpha         |
+| Liftbridge                               | experimental  |
 
 Additional resources
 ----------------------------------------
