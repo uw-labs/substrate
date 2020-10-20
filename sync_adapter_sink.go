@@ -20,6 +20,13 @@ var (
 // AsyncMessageSink.  When Close is called on the SynchronousMessageSink, this
 // is also propogated to the underlying SynchronousMessageSink
 func NewSynchronousMessageSink(ams AsyncMessageSink) SynchronousMessageSink {
+	return NewSynchronousMessageSinkWithContext(context.Background(), ams)
+}
+
+// NewSynchronousMessageSinkWithContext returns a new synchronous message sink, given an
+// AsyncMessageSink that will publish the messages using the specified context.  When Close is called on the SynchronousMessageSink, this
+// is also propagated to the underlying SynchronousMessageSink
+func NewSynchronousMessageSinkWithContext(ctx context.Context, ams AsyncMessageSink) SynchronousMessageSink {
 	spa := &synchronousMessageSinkAdapter{
 		aprod: ams,
 
@@ -28,7 +35,7 @@ func NewSynchronousMessageSink(ams AsyncMessageSink) SynchronousMessageSink {
 		closeErr:  make(chan error, 1),
 		toProduce: make(chan *produceReq),
 	}
-	go spa.loop()
+	go spa.loop(ctx)
 	return spa
 }
 
@@ -48,11 +55,11 @@ type produceReq struct {
 	ctx  context.Context
 }
 
-func (spa *synchronousMessageSinkAdapter) loop() {
+func (spa *synchronousMessageSinkAdapter) loop(publishCtx context.Context) {
 	toSend := make(chan Message)
 	acks := make(chan Message)
 
-	rg, ctx := rungroup.New(context.Background())
+	rg, ctx := rungroup.New(publishCtx)
 
 	rg.Go(func() error {
 		return spa.aprod.PublishMessages(ctx, acks, toSend)
