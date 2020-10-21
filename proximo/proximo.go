@@ -1,10 +1,14 @@
 package proximo
 
 import (
+	"context"
 	"crypto/tls"
+	"encoding/base64"
+	"fmt"
 	"time"
 
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -74,4 +78,20 @@ func proximoStatus(conn *grpc.ClientConn) (*substrate.Status, error) {
 	default:
 		return nil, errors.Errorf("unknown connection state: %s", state)
 	}
+}
+
+type Credentials struct {
+	ClientID string
+	Secret   string
+}
+
+func setupAuthentication(ctx context.Context, credentials Credentials) context.Context {
+	if credentials.ClientID == "" && credentials.Secret == "" {
+		return ctx
+	}
+
+	basicAuth := fmt.Sprintf("%s:%s", credentials.ClientID, credentials.Secret)
+	token := base64.StdEncoding.EncodeToString([]byte(basicAuth))
+	md := metadata.Pairs("Authorization", fmt.Sprintf("Bearer %s", token))
+	return metadata.NewOutgoingContext(ctx, md)
 }

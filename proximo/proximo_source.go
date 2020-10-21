@@ -10,8 +10,9 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/uw-labs/proximo/proto"
-	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/sync/rungroup"
+
+	"github.com/uw-labs/substrate"
 )
 
 // Offset is the type used to specify the initial subscription offset
@@ -36,6 +37,7 @@ type AsyncMessageSourceConfig struct {
 	Insecure       bool
 	KeepAlive      *KeepAlive
 	MaxRecvMsgSize int
+	Credentials    Credentials
 }
 
 func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
@@ -54,6 +56,7 @@ func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSo
 		consumerGroup: c.ConsumerGroup,
 		topic:         c.Topic,
 		offset:        c.Offset,
+		credentials:   c.Credentials,
 	}, nil
 }
 
@@ -62,6 +65,7 @@ type asyncMessageSource struct {
 	consumerGroup string
 	topic         string
 	offset        Offset
+	credentials   Credentials
 }
 
 type consMsg struct {
@@ -91,10 +95,11 @@ func (cm *consMsg) getMsgID() string {
 }
 
 func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
-	rg, ctx := rungroup.New(ctx)
+	authCtx := setupAuthentication(ctx, ams.credentials)
+	rg, rgctx := rungroup.New(authCtx)
 	client := proto.NewMessageSourceClient(ams.conn)
 
-	stream, err := client.Consume(ctx)
+	stream, err := client.Consume(rgctx)
 	if err != nil {
 		return errors.Wrap(err, "fail to consume")
 	}
@@ -135,16 +140,16 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 					id := toAckList[0].getMsgID()
 					if err := stream.Send(&proto.ConsumerRequest{Confirmation: &proto.Confirmation{MsgID: id}}); err != nil {
 						if err == io.EOF || status.Code(err) == codes.Canceled {
-							if ctx.Err() != nil {
-								return ctx.Err()
+							if rgctx.Err() != nil {
+								return rgctx.Err()
 							}
 						}
 						return err
 					}
 					toAckList = toAckList[1:]
 				}
-			case <-ctx.Done():
-				return ctx.Err()
+			case <-rgctx.Done():
+				return rgctx.Err()
 			}
 		}
 	})
@@ -154,8 +159,8 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 			in, err := stream.Recv()
 			if err != nil {
 				if err == io.EOF || status.Code(err) == codes.Canceled {
-					if ctx.Err() != nil {
-						return ctx.Err()
+					if rgctx.Err() != nil {
+						return rgctx.Err()
 					}
 				}
 				return err
@@ -164,13 +169,13 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 			m := &consMsg{pm: in}
 			select {
 			case toAck <- m:
-			case <-ctx.Done():
-				return ctx.Err()
+			case <-rgctx.Done():
+				return rgctx.Err()
 			}
 			select {
 			case messages <- m:
-			case <-ctx.Done():
-				return ctx.Err()
+			case <-rgctx.Done():
+				return rgctx.Err()
 			}
 		}
 	})

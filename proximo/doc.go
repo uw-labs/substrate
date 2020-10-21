@@ -8,7 +8,9 @@
 //
 // Using suburl
 //
-// The url structure is proximo://host:port/topic/
+// The url structure is proximo://clientID:secret@host:port/topic/
+//
+// The clientID and secret should be specified when proximo is setup with ACL.
 //
 // Additionally, for sources, the following url parameters are available
 //
