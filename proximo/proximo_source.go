@@ -95,11 +95,10 @@ func (cm *consMsg) getMsgID() string {
 }
 
 func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
-	authCtx := setupAuthentication(ctx, ams.credentials)
-	rg, rgctx := rungroup.New(authCtx)
+	rg, ctx := rungroup.New(setupAuthentication(ctx, ams.credentials))
 	client := proto.NewMessageSourceClient(ams.conn)
 
-	stream, err := client.Consume(rgctx)
+	stream, err := client.Consume(ctx)
 	if err != nil {
 		return errors.Wrap(err, "fail to consume")
 	}
@@ -140,16 +139,16 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 					id := toAckList[0].getMsgID()
 					if err := stream.Send(&proto.ConsumerRequest{Confirmation: &proto.Confirmation{MsgID: id}}); err != nil {
 						if err == io.EOF || status.Code(err) == codes.Canceled {
-							if rgctx.Err() != nil {
-								return rgctx.Err()
+							if ctx.Err() != nil {
+								return ctx.Err()
 							}
 						}
 						return err
 					}
 					toAckList = toAckList[1:]
 				}
-			case <-rgctx.Done():
-				return rgctx.Err()
+			case <-ctx.Done():
+				return ctx.Err()
 			}
 		}
 	})
@@ -159,8 +158,8 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 			in, err := stream.Recv()
 			if err != nil {
 				if err == io.EOF || status.Code(err) == codes.Canceled {
-					if rgctx.Err() != nil {
-						return rgctx.Err()
+					if ctx.Err() != nil {
+						return ctx.Err()
 					}
 				}
 				return err
@@ -169,13 +168,13 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 			m := &consMsg{pm: in}
 			select {
 			case toAck <- m:
-			case <-rgctx.Done():
-				return rgctx.Err()
+			case <-ctx.Done():
+				return ctx.Err()
 			}
 			select {
 			case messages <- m:
-			case <-rgctx.Done():
-				return rgctx.Err()
+			case <-ctx.Done():
+				return ctx.Err()
 			}
 		}
 	})

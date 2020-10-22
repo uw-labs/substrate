@@ -58,11 +58,10 @@ type asyncMessageSink struct {
 }
 
 func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
-	authCtx := setupAuthentication(ctx, ams.credentials)
-	rg, rgctx := rungroup.New(authCtx)
+	rg, ctx := rungroup.New(setupAuthentication(ctx, ams.credentials))
 
 	client := proto.NewMessageSinkClient(ams.conn)
-	stream, err := client.Publish(rgctx)
+	stream, err := client.Publish(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to start publishing")
 	}
@@ -82,13 +81,13 @@ func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 	rg.Go(func() error {
 		defer stream.CloseSend()
 
-		return ams.sendMessagesToProximo(rgctx, stream, messages, toAck)
+		return ams.sendMessagesToProximo(ctx, stream, messages, toAck)
 	})
 	rg.Go(func() error {
-		return ams.receiveAcksFromProximo(rgctx, stream, proximoAcks)
+		return ams.receiveAcksFromProximo(ctx, stream, proximoAcks)
 	})
 	rg.Go(func() error {
-		return ams.passAcksToUser(rgctx, acks, toAck, proximoAcks)
+		return ams.passAcksToUser(ctx, acks, toAck, proximoAcks)
 	})
 
 	return rg.Wait()
