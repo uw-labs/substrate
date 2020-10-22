@@ -25,7 +25,7 @@ type AsyncMessageSinkConfig struct {
 	Topic       string
 	Insecure    bool
 	KeepAlive   *KeepAlive
-	Credentials Credentials
+	Credentials *Credentials
 	Debug       bool
 }
 
@@ -52,7 +52,7 @@ func NewAsyncMessageSink(c AsyncMessageSinkConfig) (substrate.AsyncMessageSink, 
 type asyncMessageSink struct {
 	conn        *grpc.ClientConn
 	topic       string
-	credentials Credentials
+	credentials *Credentials
 
 	debugger debug.Debugger
 }

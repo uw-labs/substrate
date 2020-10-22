@@ -37,7 +37,7 @@ type AsyncMessageSourceConfig struct {
 	Insecure       bool
 	KeepAlive      *KeepAlive
 	MaxRecvMsgSize int
-	Credentials    Credentials
+	Credentials    *Credentials
 }
 
 func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
@@ -65,7 +65,7 @@ type asyncMessageSource struct {
 	consumerGroup string
 	topic         string
 	offset        Offset
-	credentials   Credentials
+	credentials   *Credentials
 }
 
 type consMsg struct {

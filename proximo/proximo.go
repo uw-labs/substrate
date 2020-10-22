@@ -85,8 +85,8 @@ type Credentials struct {
 	Secret   string
 }
 
-func setupAuthentication(ctx context.Context, credentials Credentials) context.Context {
-	if credentials.ClientID == "" && credentials.Secret == "" {
+func setupAuthentication(ctx context.Context, credentials *Credentials) context.Context {
+	if credentials == nil || (credentials.ClientID == "" && credentials.Secret == "") {
 		return ctx
 	}
 

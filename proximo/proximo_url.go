@@ -55,12 +55,12 @@ func newProximoSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 	return proximoSinker(conf)
 }
 
-func credentialsFromURL(u url.URL) Credentials {
+func credentialsFromURL(u url.URL) *Credentials {
 	if u.User == nil {
-		return Credentials{}
+		return nil
 	}
 	p, _ := u.User.Password()
-	return Credentials{
+	return &Credentials{
 		ClientID: u.User.Username(),
 		Secret:   p,
 	}

@@ -86,7 +86,7 @@ func TestProximoSink(t *testing.T) {
 			expected: AsyncMessageSinkConfig{
 				Broker: "localhost:123",
 				Topic:  "t1",
-				Credentials: Credentials{
+				Credentials: &Credentials{
 					ClientID: "test",
 					Secret:   "dummypassword",
 				},
@@ -99,7 +99,7 @@ func TestProximoSink(t *testing.T) {
 			expected: AsyncMessageSinkConfig{
 				Broker: "localhost:123",
 				Topic:  "t1",
-				Credentials: Credentials{
+				Credentials: &Credentials{
 					ClientID: "test",
 					Secret:   "",
 				},
@@ -112,7 +112,7 @@ func TestProximoSink(t *testing.T) {
 			expected: AsyncMessageSinkConfig{
 				Broker: "localhost:123",
 				Topic:  "t1",
-				Credentials: Credentials{
+				Credentials: &Credentials{
 					ClientID: "",
 					Secret:   "dummypassword",
 				},
@@ -204,7 +204,7 @@ func TestProximoSource(t *testing.T) {
 			input: "proximo://test:dummypassword@localhost",
 			expected: AsyncMessageSourceConfig{
 				Broker: "localhost",
-				Credentials: Credentials{
+				Credentials: &Credentials{
 					ClientID: "test",
 					Secret:   "dummypassword",
 				},
@@ -216,7 +216,7 @@ func TestProximoSource(t *testing.T) {
 			input: "proximo://test@localhost",
 			expected: AsyncMessageSourceConfig{
 				Broker: "localhost",
-				Credentials: Credentials{
+				Credentials: &Credentials{
 					ClientID: "test",
 					Secret:   "",
 				},
@@ -228,7 +228,7 @@ func TestProximoSource(t *testing.T) {
 			input: "proximo://:dummypassword@localhost",
 			expected: AsyncMessageSourceConfig{
 				Broker: "localhost",
-				Credentials: Credentials{
+				Credentials: &Credentials{
 					ClientID: "",
 					Secret:   "dummypassword",
 				},
