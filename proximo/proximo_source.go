@@ -10,8 +10,9 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/uw-labs/proximo/proto"
-	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/sync/rungroup"
+
+	"github.com/uw-labs/substrate"
 )
 
 // Offset is the type used to specify the initial subscription offset
@@ -36,6 +37,7 @@ type AsyncMessageSourceConfig struct {
 	Insecure       bool
 	KeepAlive      *KeepAlive
 	MaxRecvMsgSize int
+	Credentials    *Credentials
 }
 
 func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
@@ -54,6 +56,7 @@ func NewAsyncMessageSource(c AsyncMessageSourceConfig) (substrate.AsyncMessageSo
 		consumerGroup: c.ConsumerGroup,
 		topic:         c.Topic,
 		offset:        c.Offset,
+		credentials:   c.Credentials,
 	}, nil
 }
 
@@ -62,6 +65,7 @@ type asyncMessageSource struct {
 	consumerGroup string
 	topic         string
 	offset        Offset
+	credentials   *Credentials
 }
 
 type consMsg struct {
@@ -91,7 +95,7 @@ func (cm *consMsg) getMsgID() string {
 }
 
 func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages chan<- substrate.Message, acks <-chan substrate.Message) error {
-	rg, ctx := rungroup.New(ctx)
+	rg, ctx := rungroup.New(setupAuthentication(ctx, ams.credentials))
 	client := proto.NewMessageSourceClient(ams.conn)
 
 	stream, err := client.Consume(ctx)

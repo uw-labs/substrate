@@ -80,6 +80,45 @@ func TestProximoSink(t *testing.T) {
 			},
 			expectedErr: nil,
 		},
+		{
+			name:  "with-full-userinfo",
+			input: "proximo://test:dummypassword@localhost:123/t1",
+			expected: AsyncMessageSinkConfig{
+				Broker: "localhost:123",
+				Topic:  "t1",
+				Credentials: &Credentials{
+					ClientID: "test",
+					Secret:   "dummypassword",
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			name:  "with-only-user",
+			input: "proximo://test@localhost:123/t1",
+			expected: AsyncMessageSinkConfig{
+				Broker: "localhost:123",
+				Topic:  "t1",
+				Credentials: &Credentials{
+					ClientID: "test",
+					Secret:   "",
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			name:  "with-only-password",
+			input: "proximo://:dummypassword@localhost:123/t1",
+			expected: AsyncMessageSinkConfig{
+				Broker: "localhost:123",
+				Topic:  "t1",
+				Credentials: &Credentials{
+					ClientID: "",
+					Secret:   "dummypassword",
+				},
+			},
+			expectedErr: nil,
+		},
 	}
 
 	for _, tst := range tests {
@@ -159,6 +198,42 @@ func TestProximoSource(t *testing.T) {
 					Timeout: time.Second * 70,
 				},
 			},
+		},
+		{
+			name:  "with-full-userinfo",
+			input: "proximo://test:dummypassword@localhost",
+			expected: AsyncMessageSourceConfig{
+				Broker: "localhost",
+				Credentials: &Credentials{
+					ClientID: "test",
+					Secret:   "dummypassword",
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			name:  "with-only-user",
+			input: "proximo://test@localhost",
+			expected: AsyncMessageSourceConfig{
+				Broker: "localhost",
+				Credentials: &Credentials{
+					ClientID: "test",
+					Secret:   "",
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			name:  "with-only-password",
+			input: "proximo://:dummypassword@localhost",
+			expected: AsyncMessageSourceConfig{
+				Broker: "localhost",
+				Credentials: &Credentials{
+					ClientID: "",
+					Secret:   "dummypassword",
+				},
+			},
+			expectedErr: nil,
 		},
 		{
 			name:  "everything",
