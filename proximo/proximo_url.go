@@ -50,7 +50,20 @@ func newProximoSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 		conf.Debug = true
 	}
 
+	conf.Credentials = credentialsFromURL(*u)
+
 	return proximoSinker(conf)
+}
+
+func credentialsFromURL(u url.URL) *Credentials {
+	if u.User == nil {
+		return nil
+	}
+	p, _ := u.User.Password()
+	return &Credentials{
+		ClientID: u.User.Username(),
+		Secret:   p,
+	}
 }
 
 var proximoSinker = NewAsyncMessageSink
@@ -103,6 +116,7 @@ func newProximoSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 		conf.MaxRecvMsgSize = size
 	}
 
+	conf.Credentials = credentialsFromURL(*u)
 	return proximoSourcer(conf)
 }
 

@@ -12,20 +12,21 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/uw-labs/proximo/proto"
+	"github.com/uw-labs/sync/rungroup"
+
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/internal/debug"
-	"github.com/uw-labs/sync/rungroup"
 )
 
 var _ substrate.AsyncMessageSink = (*asyncMessageSink)(nil)
 
 type AsyncMessageSinkConfig struct {
-	Broker    string
-	Topic     string
-	Insecure  bool
-	KeepAlive *KeepAlive
-
-	Debug bool
+	Broker      string
+	Topic       string
+	Insecure    bool
+	KeepAlive   *KeepAlive
+	Credentials *Credentials
+	Debug       bool
 }
 
 func NewAsyncMessageSink(c AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
@@ -39,8 +40,9 @@ func NewAsyncMessageSink(c AsyncMessageSinkConfig) (substrate.AsyncMessageSink, 
 	}
 
 	return &asyncMessageSink{
-		conn:  conn,
-		topic: c.Topic,
+		conn:        conn,
+		topic:       c.Topic,
+		credentials: c.Credentials,
 		debugger: debug.Debugger{
 			Enabled: c.Debug,
 		},
@@ -48,14 +50,15 @@ func NewAsyncMessageSink(c AsyncMessageSinkConfig) (substrate.AsyncMessageSink, 
 }
 
 type asyncMessageSink struct {
-	conn  *grpc.ClientConn
-	topic string
+	conn        *grpc.ClientConn
+	topic       string
+	credentials *Credentials
 
 	debugger debug.Debugger
 }
 
 func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- substrate.Message, messages <-chan substrate.Message) (rerr error) {
-	rg, ctx := rungroup.New(ctx)
+	rg, ctx := rungroup.New(setupAuthentication(ctx, ams.credentials))
 
 	client := proto.NewMessageSinkClient(ams.conn)
 	stream, err := client.Publish(ctx)
