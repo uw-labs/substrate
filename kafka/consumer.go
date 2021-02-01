@@ -20,6 +20,7 @@ const (
 
 	defaultMetadataRefreshFrequency = 10 * time.Minute
 	defaultConsumerSessionTimeout   = 10 * time.Second
+	defaultConsumerRebalanceTimeout = 60 * time.Second
 )
 
 // AsyncMessageSource represents a kafka message source and implements the
@@ -32,6 +33,7 @@ type AsyncMessageSourceConfig struct {
 	MetadataRefreshFrequency time.Duration
 	OffsetsRetention         time.Duration
 	SessionTimeout           time.Duration
+	RebalanceTimeout         time.Duration
 	Version                  string
 
 	Debug bool
@@ -51,11 +53,17 @@ func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*sarama.Config
 		st = ams.SessionTimeout
 	}
 
+	rt := defaultConsumerRebalanceTimeout
+	if ams.RebalanceTimeout != 0 {
+		rt = ams.RebalanceTimeout
+	}
+
 	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
 	config.Consumer.Offsets.Initial = offset
 	config.Metadata.RefreshFrequency = mrf
 	config.Consumer.Group.Session.Timeout = st
+	config.Consumer.Group.Rebalance.Timeout = rt
 	config.Consumer.Offsets.Retention = ams.OffsetsRetention
 
 	if ams.Version != "" {
