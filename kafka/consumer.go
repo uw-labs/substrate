@@ -34,6 +34,7 @@ type AsyncMessageSourceConfig struct {
 	OffsetsRetention         time.Duration
 	SessionTimeout           time.Duration
 	RebalanceTimeout         time.Duration
+	ReadTimeout              time.Duration
 	Version                  string
 
 	Debug bool
@@ -58,6 +59,11 @@ func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*sarama.Config
 		rt = ams.RebalanceTimeout
 	}
 
+	readTimeout := 30 * time.Second
+	if ams.ReadTimeout != 0 {
+		readTimeout = ams.ReadTimeout
+	}
+
 	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
 	config.Consumer.Offsets.Initial = offset
@@ -65,6 +71,7 @@ func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*sarama.Config
 	config.Consumer.Group.Session.Timeout = st
 	config.Consumer.Group.Rebalance.Timeout = rt
 	config.Consumer.Offsets.Retention = ams.OffsetsRetention
+	config.Net.ReadTimeout = readTimeout
 
 	if ams.Version != "" {
 		version, err := sarama.ParseKafkaVersion(ams.Version)
