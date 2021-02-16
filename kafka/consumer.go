@@ -124,7 +124,7 @@ func (cm *consumerMessage) Data() []byte {
 
 func (cm *consumerMessage) Key() []byte {
 	if cm.cm == nil {
-		return nil
+		panic("attempt to get the key after discarding.")
 	}
 	return cm.cm.Key
 }
