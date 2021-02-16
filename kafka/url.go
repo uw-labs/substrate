@@ -96,6 +96,15 @@ func newKafkaSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 		conf.RebalanceTimeout = d
 	}
 
+	ct := q.Get("read-timeout")
+	if ct != "" {
+		d, err := time.ParseDuration(ct)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse read timeout: %v", err)
+		}
+		conf.ReadTimeout = d
+	}
+
 	conf.Version = q.Get("version")
 
 	return kafkaSourcer(conf)
