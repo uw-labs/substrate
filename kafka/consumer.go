@@ -122,6 +122,13 @@ func (cm *consumerMessage) Data() []byte {
 	return cm.cm.Value
 }
 
+func (cm *consumerMessage) Key() []byte {
+	if cm.cm == nil {
+		return nil
+	}
+	return cm.cm.Key
+}
+
 func (cm *consumerMessage) DiscardPayload() {
 	if cm.offset != nil {
 		// already discarded
