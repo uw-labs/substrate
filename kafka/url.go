@@ -3,6 +3,7 @@ package kafka
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -36,6 +37,14 @@ func newKafkaSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 	debug := q.Get("debug")
 	if debug == "true" {
 		conf.Debug = true
+	}
+
+	if maxMessageBytes := q.Get("max-message-bytes"); maxMessageBytes != "" {
+		var err error
+		conf.MaxMessageBytes, err = strconv.Atoi(maxMessageBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed parsing URL param 'max-message-bytes' with value %s to int, err: %w", maxMessageBytes, err)
+		}
 	}
 
 	return kafkaSinker(conf)

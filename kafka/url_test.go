@@ -56,12 +56,13 @@ func TestKafkaSink(t *testing.T) {
 		},
 		{
 			name:  "everything",
-			input: "kafka://localhost:123/t1/?broker=localhost:234&broker=localhost:345&version=2.2.0.0&debug=true",
+			input: "kafka://localhost:123/t1/?broker=localhost:234&broker=localhost:345&version=2.2.0.0&debug=true&max-message-bytes=500",
 			expected: AsyncMessageSinkConfig{
-				Brokers: []string{"localhost:123", "localhost:234", "localhost:345"},
-				Topic:   "t1",
-				Version: "2.2.0.0",
-				Debug:   true,
+				Brokers:         []string{"localhost:123", "localhost:234", "localhost:345"},
+				Topic:           "t1",
+				Version:         "2.2.0.0",
+				Debug:           true,
+				MaxMessageBytes: 500,
 			},
 			expectedErr: nil,
 		},

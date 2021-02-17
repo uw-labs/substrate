@@ -13,11 +13,17 @@
 // The following url parameters are available:
 //
 //      broker - Specifies additional broker addresses in the form host%3Aport (where %3A is a url encoded ':')
+//      version - Specifies the version of the broker
 //
 // Additionally, for sources, the following url parameters are available
 //
 //      offset           - The initial offset. Valid values are `newest` and `oldest`.
 //      consumer-group   - The consumer group id
 //      metadata-refresh - How frequently to refresh the cluster metadata. E.g., '10s' '2m'
+//
+// Additionally, for sinks, the following url parameters are available
+//
+//      debug               - Boolean indicating if debug logs should be written.
+//      max-message-bytes   - The maximum size in bytes for the produced messages.
 //
 package kafka
