@@ -107,10 +107,19 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 
 				message.Value = sarama.ByteEncoder(m.Data())
 
+				// Get original user message if wrapped
+				unwrappedMsg := unwrap.Unwrap(m)
 				if ams.KeyFunc != nil {
 					// Provide original user message to the partition key function.
-					unwrappedMsg := unwrap.Unwrap(m)
 					message.Key = sarama.ByteEncoder(ams.KeyFunc(unwrappedMsg))
+				} else {
+					// No user specified key func, check for keyed message type
+					if km, ok := unwrappedMsg.(substrate.KeyedMessage); ok {
+						message.Key = sarama.ByteEncoder(km.Key())
+					} else {
+						// Use the whole message as the hash key
+						message.Key = sarama.ByteEncoder(unwrappedMsg.Data())
+					}
 				}
 
 				message.Metadata = m
@@ -150,11 +159,7 @@ func (ams *AsyncMessageSinkConfig) buildSaramaProducerConfig() (*sarama.Config, 
 		conf.Producer.MaxMessageBytes = int(ams.MaxMessageBytes)
 	}
 
-	if ams.KeyFunc != nil {
-		conf.Producer.Partitioner = sarama.NewHashPartitioner
-	} else {
-		conf.Producer.Partitioner = sarama.NewRoundRobinPartitioner
-	}
+	conf.Producer.Partitioner = sarama.NewHashPartitioner
 
 	if ams.Version != "" {
 		version, err := sarama.ParseKafkaVersion(ams.Version)
