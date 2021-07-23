@@ -7,9 +7,7 @@ import (
 )
 
 // asyncMessageSource does no operations on publish messages calls
-type asyncMessageSource struct {
-	closed chan struct{}
-}
+type asyncMessageSource struct{}
 
 // NewAsyncMessageSource returns a new AsyncMessageSource
 func NewAsyncMessageSource() substrate.AsyncMessageSource {
