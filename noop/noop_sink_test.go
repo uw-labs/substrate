@@ -25,7 +25,7 @@ func TestPublishMessages(t *testing.T) {
 	sinkContext, sinkCancel := context.WithCancel(context.Background())
 	defer sinkCancel()
 
-	errs := make(chan error)
+	errs := make(chan error, 1)
 
 	go func() {
 		defer close(errs)
