@@ -28,7 +28,7 @@ func TestAll(t *testing.T) {
 	t.Run("Kafka Rebalance", func(t *testing.T) {
 		k.testRebalance(t)
 	})
-	testshared.TestAll(t, k)
+	testshared.TestAll(t, k, true)
 }
 
 type testServer struct {
@@ -192,10 +192,6 @@ loop:
 		case err == nil:
 			outS := string(out) // e.g., 0.0.0.0:32776
 			ps := strings.Split(outS, ":")
-			if len(ps) != 2 {
-				cmd.Process.Kill()
-				return nil, fmt.Errorf("docker port returned something strange: %s", outS)
-			}
 			p, err := strconv.Atoi(strings.TrimSpace(ps[1]))
 			if err != nil {
 				cmd.Process.Kill()

@@ -19,7 +19,7 @@ func TestAll(t *testing.T) {
 
 	defer k.Kill()
 
-	testshared.TestAll(t, k)
+	testshared.TestAll(t, k, false)
 }
 
 type testServer struct {
