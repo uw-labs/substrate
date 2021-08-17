@@ -25,10 +25,10 @@ type TestServer interface {
 
 // TestAll is the main entrypoint from the backend implmenentation tests to
 // call, and will run each test as a sub-test.
-func TestAll(t *testing.T, ts TestServer) {
+func TestAll(t *testing.T, ts TestServer, testDurable bool) {
 	t.Helper()
 
-	for _, x := range []func(t *testing.T, ts TestServer){
+	tests := []func(t *testing.T, ts TestServer){
 		testOnePublisherOneMessageOneConsumer,
 		testOnePublisherOneMessageTwoConsumers,
 		testPublisherShouldNotBlock,
@@ -42,7 +42,12 @@ func TestAll(t *testing.T, ts TestServer) {
 		testConsumeStatusFail,
 		testPublishMultipleMessagesOneConsumer,
 		testOnePublisherOneConsumerConsumeWithoutAckingDiscardedPayload,
-	} {
+	}
+	if testDurable {
+		tests = append(tests, testDurableConsumer)
+	}
+
+	for _, x := range tests {
 		f := func(t *testing.T) {
 			x(t, ts)
 		}
@@ -536,6 +541,79 @@ func testOnePublisherOneConsumerConsumeWithoutAckingDiscardedPayload(t *testing.
 
 	if err := cons.Close(); err != nil {
 		t.Errorf("unexpected error closing consumer: %s", err)
+	}
+}
+
+func testDurableConsumer(t *testing.T, ts TestServer) {
+	assert := assert.New(t)
+
+	topic := generateID()
+	consumerID := generateID()
+
+	cons := ts.NewConsumer(topic, consumerID)
+	prod := ts.NewProducer(topic)
+
+	consCtx, consCancel := context.WithCancel(context.Background())
+	consMsgs := make(chan substrate.Message)
+	consAcks := make(chan substrate.Message)
+	consErrs := make(chan error, 1)
+	go func() {
+		consErrs <- cons.ConsumeMessages(consCtx, consMsgs, consAcks)
+		consCancel()
+	}()
+
+	prodCtx, prodCancel := context.WithCancel(context.Background())
+
+	prodMsgs := make(chan substrate.Message, 1024)
+	prodAcks := make(chan substrate.Message, 1024)
+	prodErrs := make(chan error, 1)
+	go func() {
+		prodErrs <- prod.PublishMessages(prodCtx, prodAcks, prodMsgs)
+		prodCancel()
+	}()
+
+	// Publish 30 messages.
+	for i := 0; i < 30; i++ {
+		messageText := fmt.Sprintf("messageText-%d", i)
+		m := testMessage(messageText)
+		produceAndCheckAck(prodCtx, t, prodMsgs, prodAcks, &m)
+	}
+
+	// Consume 15 message and close connection.
+	for i := 0; i < 15; i++ {
+		messageText := fmt.Sprintf("messageText-%d", i)
+		msgStr := consumeAndAck(consCtx, t, consMsgs, consAcks)
+		assert.Equal(messageText, msgStr)
+	}
+	consCancel()
+	if err := <-consErrs; err != context.Canceled {
+		t.Errorf("unexpected error from consume : %s", err)
+	}
+	assert.NoError(cons.Close())
+
+	// Read the remaining 15 messages to check that subscription is durable.
+	cons = ts.NewConsumer(topic, consumerID)
+	consCtx, consCancel = context.WithCancel(context.Background())
+	consMsgs = make(chan substrate.Message)
+	consAcks = make(chan substrate.Message)
+	consErrs = make(chan error, 1)
+	go func() {
+		consErrs <- cons.ConsumeMessages(consCtx, consMsgs, consAcks)
+		consCancel()
+	}()
+
+	for i := 15; i < 30; i++ {
+		messageText := fmt.Sprintf("messageText-%d", i)
+		msgStr := consumeAndAck(consCtx, t, consMsgs, consAcks)
+		assert.Equal(messageText, msgStr)
+	}
+	consCancel()
+	if err := <-consErrs; err != context.Canceled {
+		t.Errorf("unexpected error from consume : %s", err)
+	}
+	prodCancel()
+	if err := <-prodErrs; err != context.Canceled {
+		t.Errorf("unexpected error from produce : %s", err)
 	}
 }
 
