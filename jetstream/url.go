@@ -36,9 +36,10 @@ func newJetStreamSink(u *url.URL) (substrate.AsyncMessageSink, error) {
 	}
 
 	return natsStreamingSinker(AsyncMessageSinkConfig{
-		URL:        natsURL,
-		Topic:      topic,
-		MaxPending: maxPending,
+		URL:         natsURL,
+		Topic:       topic,
+		MaxPending:  maxPending,
+		Partitioned: strings.ToLower(q.Get("partitioned")) == "true",
 	})
 }
 
@@ -58,6 +59,7 @@ func newJetStreamSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 		URL:           natsURL,
 		Topic:         topic,
 		ConsumerGroup: q.Get("consumer-group"),
+		Partition:     q.Get("partition"),
 	}
 
 	switch offset := q.Get("offset"); offset {

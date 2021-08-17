@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/internal/testshared"
@@ -23,8 +24,58 @@ func TestAll(t *testing.T) {
 	t.Cleanup(func() {
 		k.Kill()
 	})
+	t.Run("partitioned", testPartitioned(k))
 
 	testshared.TestAll(t, &testServer{}, true)
+}
+
+func testPartitioned(k *testServer) func(*testing.T) {
+	return func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
+
+		k.ensureTopic("PARTITIONED", "PARTITIONED.*")
+		p, err := NewAsyncMessageSink(AsyncMessageSinkConfig{
+			URL:         "http://0.0.0.0:4222",
+			Topic:       "PARTITIONED",
+			Partitioned: true,
+		})
+		assert.NoError(t, err)
+		s := substrate.NewSynchronousMessageSink(p)
+		defer func() {
+			assert.NoError(t, s.Close())
+		}()
+		assert.NoError(t, s.PublishMessage(ctx, &testMsg{
+			key:  []byte("v1"),
+			data: []byte("v1-started"),
+		}))
+		assert.NoError(t, s.PublishMessage(ctx, &testMsg{
+			key:  []byte("v2"),
+			data: []byte("v2-started"),
+		}))
+
+		c, err := NewAsyncMessageSource(AsyncMessageSourceConfig{
+			URL:           "http://0.0.0.0:4222",
+			Topic:         "PARTITIONED",
+			ConsumerGroup: "consumer-1",
+			Offset:        OffsetOldest,
+			Partition:     "*",
+		})
+		assert.NoError(t, err)
+		sc := substrate.NewSynchronousMessageSource(c)
+		defer sc.Close()
+
+		payloads := make([]string, 0, 2)
+		expErr := fmt.Errorf("success")
+		assert.Equal(t, expErr, sc.ConsumeMessages(ctx, func(ctx context.Context, m substrate.Message) error {
+			payloads = append(payloads, string(m.Data()))
+			if len(payloads) == 2 {
+				return expErr
+			}
+			return nil
+		}))
+		assert.Equal(t, []string{"v1-started", "v2-started"}, payloads)
+	}
 }
 
 type testServer struct {
@@ -60,7 +111,7 @@ func (ks *testServer) NewProducer(topic string) substrate.AsyncMessageSink {
 	return sink
 }
 
-func (ks *testServer) ensureTopic(topic string) {
+func (ks *testServer) ensureTopic(topic string, subjects ...string) {
 	conn, err := nats.Connect("http://0.0.0.0:4222")
 	if err != nil {
 		panic(err)
@@ -72,7 +123,8 @@ func (ks *testServer) ensureTopic(topic string) {
 		panic(err)
 	}
 	if _, err := js.AddStream(&nats.StreamConfig{
-		Name: topic,
+		Name:     topic,
+		Subjects: subjects,
 	}); err != nil {
 		panic(err)
 	}
@@ -143,4 +195,17 @@ func (ks *testServer) canConsume() error {
 	}
 	conn.Close()
 	return nil
+}
+
+type testMsg struct {
+	key  []byte
+	data []byte
+}
+
+func (msg *testMsg) Key() []byte {
+	return msg.key
+}
+
+func (msg *testMsg) Data() []byte {
+	return msg.data
 }

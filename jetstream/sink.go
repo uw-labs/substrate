@@ -2,18 +2,23 @@ package jetstream
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/nats-io/nats.go"
 
 	"github.com/uw-labs/substrate"
+	"github.com/uw-labs/substrate/internal/unwrap"
 )
 
 const DefaultSinkMaxPending = 256
 
 type AsyncMessageSinkConfig struct {
-	URL        string
-	Topic      string
-	MaxPending int
+	URL         string
+	Topic       string
+	MaxPending  int
+	Partitioned bool // Indicates whether to use partitioned mode.
+	// In partitioned mode the sink requires messages to satisfy substrate.KeyedMessage interface.
+	// The messages are then written to  the following subject `{topic}.{key}`.
 }
 
 func NewAsyncMessageSink(cfg AsyncMessageSinkConfig) (substrate.AsyncMessageSink, error) {
@@ -53,7 +58,16 @@ func (a asyncSourceSink) PublishMessages(ctx context.Context, acks chan<- substr
 		case <-ctx.Done():
 			return ctx.Err()
 		case msg := <-messages:
-			ack, err := a.jsCtx.PublishAsync(a.cfg.Topic, msg.Data())
+			subject := a.cfg.Topic
+			if a.cfg.Partitioned {
+				kMsg, ok := unwrap.Unwrap(msg).(substrate.KeyedMessage)
+				if !ok {
+					return fmt.Errorf("messages must satify substrate.KeyedMessage interface when running in partitioned mode")
+				}
+				subject += "." + string(kMsg.Key())
+			}
+
+			ack, err := a.jsCtx.PublishAsync(subject, msg.Data())
 			if err != nil {
 				return err
 			}

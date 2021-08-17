@@ -25,6 +25,7 @@ type AsyncMessageSourceConfig struct {
 	ConsumerGroup string
 	Offset        Offset
 	AckWait       time.Duration
+	Partition     string // If set the source subscribes to subject `{topic}.{partition}` instead of `{topic}`.
 }
 
 func NewAsyncMessageSource(cfg AsyncMessageSourceConfig) (substrate.AsyncMessageSource, error) {
@@ -36,6 +37,9 @@ func NewAsyncMessageSource(cfg AsyncMessageSourceConfig) (substrate.AsyncMessage
 	if err != nil {
 		conn.Close()
 		return nil, err
+	}
+	if cfg.Partition == "" {
+		// TODO: set automatically to "*" if stream has subjects set.
 	}
 	switch _, err := js.ConsumerInfo(cfg.Topic, cfg.ConsumerGroup); {
 	case err == nil:
@@ -92,8 +96,12 @@ func (a asyncSourceSource) ConsumeMessages(ctx context.Context, messages chan<- 
 		case messages <- sMsg:
 		}
 	}
+	subject := a.cfg.Topic
+	if a.cfg.Partition != "" {
+		subject += "." + a.cfg.Partition
+	}
 
-	sub, err := a.jsCtx.QueueSubscribe(a.cfg.Topic, a.cfg.ConsumerGroup, handler, nats.Durable(a.cfg.ConsumerGroup), nats.ManualAck())
+	sub, err := a.jsCtx.QueueSubscribe(subject, a.cfg.ConsumerGroup, handler, nats.Durable(a.cfg.ConsumerGroup), nats.ManualAck())
 	if err != nil {
 		return err
 	}

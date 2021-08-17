@@ -52,6 +52,16 @@ func TestJetStreamURLSink(t *testing.T) {
 			expected:    AsyncMessageSinkConfig{},
 			expectedErr: true,
 		},
+		{
+			name:  "partitioned",
+			input: "jet-stream://localhost:123/t2?partitioned=true",
+			expected: AsyncMessageSinkConfig{
+				URL:         "http://localhost:123",
+				Topic:       "t2",
+				Partitioned: true,
+			},
+			expectedErr: false,
+		},
 	}
 
 	for _, tst := range tests {
@@ -110,13 +120,14 @@ func TestJetStreamURLSource(t *testing.T) {
 		},
 		{
 			name:  "everything",
-			input: "jet-stream://localhost:123/t1?consumer-group=qg1&ack-wait=30s&offset=oldest",
+			input: "jet-stream://localhost:123/t1?consumer-group=qg1&ack-wait=30s&offset=oldest&partition=*",
 			expected: AsyncMessageSourceConfig{
 				URL:           "http://localhost:123",
 				ConsumerGroup: "qg1",
 				Topic:         "t1",
 				AckWait:       30 * time.Second,
 				Offset:        OffsetOldest,
+				Partition:     "*",
 			},
 			expectedErr: false,
 		},
