@@ -3,7 +3,7 @@ module github.com/uw-labs/substrate
 go 1.14
 
 require (
-	github.com/Shopify/sarama v1.26.4
+	github.com/Shopify/sarama v1.29.0
 	github.com/Shopify/toxiproxy v2.1.4+incompatible
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/google/uuid v1.1.1
@@ -15,7 +15,7 @@ require (
 	github.com/prometheus/client_golang v1.2.1
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/sirupsen/logrus v1.4.2
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.7.0
 	github.com/uw-labs/freezer v0.0.0-20200403100623-d1c19e689e07
 	github.com/uw-labs/proximo v0.0.0-20190913093050-8229af78f5dd
 	github.com/uw-labs/straw v0.0.0-20200213162553-01e9a0f94f69
