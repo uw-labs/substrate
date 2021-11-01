@@ -156,7 +156,12 @@ func (spa *synchronousMessageSinkAdapter) PublishMessage(ctx context.Context, m 
 }
 
 func (spa *synchronousMessageSinkAdapter) Status() (*Status, error) {
-	return spa.aprod.Status()
+	select {
+	case <-spa.closed:
+		return &Status{Working: false, Problems: []string{"sink was closed"}}, nil
+	default:
+		return spa.aprod.Status()
+	}
 }
 
 type seqMessage struct {
