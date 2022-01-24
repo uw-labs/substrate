@@ -191,6 +191,12 @@ loop:
 		switch {
 		case err == nil:
 			outS := string(out) // e.g., 0.0.0.0:32776
+
+			// Truncate any additional IPs after the first one
+			if i := strings.Index(outS, "\n"); i > -1 {
+				outS = outS[:i]
+			}
+
 			ps := strings.Split(outS, ":")
 			if len(ps) != 2 {
 				cmd.Process.Kill()
@@ -234,4 +240,8 @@ type message struct {
 
 func (msg *message) Data() []byte {
 	return msg.data
+}
+
+func (msg *message) Key() []byte {
+	return nil
 }

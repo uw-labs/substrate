@@ -115,7 +115,9 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 				} else {
 					// No user specified key func, check for keyed message type
 					if km, ok := unwrappedMsg.(substrate.KeyedMessage); ok {
-						message.Key = sarama.ByteEncoder(km.Key())
+						if key := km.Key(); key != nil {
+							message.Key = sarama.ByteEncoder(key)
+						}
 					} else {
 						// Use the whole message as the hash key
 						message.Key = sarama.ByteEncoder(unwrappedMsg.Data())
