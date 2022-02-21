@@ -101,12 +101,12 @@ func (ap *kafkaAcksProcessor) run(ctx context.Context) error {
 			case ap.sess = <-ap.sessCh:
 			}
 		case msg := <-ap.fromKafka:
-			ap.debugger.Logf("substrate : consumer - got message from kafka : %s\n", msg)
+			ap.debugger.Logf("substrate : consumer - got message from kafka : %+v\n", msg)
 			if err := ap.processMessage(ctx, msg); err != nil {
 				return err
 			}
 		case ack := <-ap.acks:
-			ap.debugger.Logf("substrate : consumer - got ack from caller for message : %s\n", ack)
+			ap.debugger.Logf("substrate : consumer - got ack from caller for message : %+v\n", ack)
 			if err := ap.processAck(ack); err != nil {
 				return err
 			}

@@ -87,7 +87,7 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 				msg := suc.Metadata.(substrate.Message)
 				select {
 				case acks <- msg:
-					ams.debugger.Logf("substrate : producer - sent ack to caller for message : %s\n", msg)
+					ams.debugger.Logf("substrate : producer - sent ack to caller for message : %+v\n", msg)
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -130,7 +130,7 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 				case <-ctx.Done():
 					return ctx.Err()
 				}
-				ams.debugger.Logf("substrate : producer - sent to kafka : %s\n", m)
+				ams.debugger.Logf("substrate : producer - sent to kafka : %+v\n", m)
 			case <-ctx.Done():
 				return ctx.Err()
 			case err := <-errs:
