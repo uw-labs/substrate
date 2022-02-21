@@ -37,6 +37,8 @@ func (d *Debugger) doLogf(s string, args ...interface{}) {
 			args1[i] = messageHash(a.Data)
 		case []byte:
 			args1[i] = messageHash(a)
+		case substrate.KeyedMessage:
+			args1[i] = messageHash(a.Data())
 		default:
 			args1[i] = arg
 		}
