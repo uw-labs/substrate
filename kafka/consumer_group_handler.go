@@ -140,7 +140,7 @@ func (ap *kafkaAcksProcessor) processMessage(ctx context.Context, msg *consumerM
 			ap.forAcking = append(ap.forAcking, msg)
 			return nil // We have passed the message to the client, so we can exit this loop.
 		case ack := <-ap.acks:
-			ap.debugger.Logf("substrate : consumer - got ack from caller for message : %s\n", msg)
+			ap.debugger.Logf("substrate : consumer - got ack from caller for message : %+v\n", msg)
 			// Still process acks, so that we don't block the consumer acknowledging the message.
 			if err := ap.processAck(ack); err != nil {
 				return err
@@ -168,7 +168,7 @@ func (ap *kafkaAcksProcessor) processAck(ack substrate.Message) error {
 		// Acknowledge the message.
 		if ap.forAcking[0].cm != nil {
 			ap.sess.MarkMessage(ap.forAcking[0].cm, "")
-			ap.debugger.Logf("substrate : consumer - sent ack to kafka for message : %s\n", ap.forAcking[0])
+			ap.debugger.Logf("substrate : consumer - sent ack to kafka for message : %+v\n", ap.forAcking[0])
 		} else {
 			off := ap.forAcking[0].offset
 			// MarkOffset marks the next message to consume, so we need to add 1
