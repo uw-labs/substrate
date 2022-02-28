@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/sirupsen/logrus"
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/internal/debug"
 	"github.com/uw-labs/substrate/internal/helper"
@@ -125,6 +126,20 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 				}
 
 				message.Metadata = m
+
+				if _, ok := message.Metadata.(substrate.Message); !ok {
+					logrus.Errorf("Message metadata does not contain substrate message: %+v", message)
+					logrus.Errorf("Message body: %s", string(m.Data()))
+
+					if km, ok := unwrappedMsg.(substrate.KeyedMessage); ok {
+						if key := km.Key(); key != nil {
+							logrus.Errorf("Message key: %s", string(key))
+						}
+					}
+
+					panic("Substrate metadata precondition failure")
+				}
+
 				select {
 				case input <- message:
 				case <-ctx.Done():
