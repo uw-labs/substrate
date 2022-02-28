@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/Shopify/sarama"
@@ -137,7 +138,7 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 						}
 					}
 
-					panic("Substrate metadata precondition failure")
+					return fmt.Errorf("bug: Substrate metadata precondition failure")
 				}
 
 				select {
