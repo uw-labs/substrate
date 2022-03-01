@@ -86,7 +86,23 @@ func (ams *asyncMessageSink) doPublishMessages(ctx context.Context, producer sar
 		for {
 			select {
 			case suc := <-successes:
-				msg := suc.Metadata.(substrate.Message)
+				msg, ok := suc.Metadata.(substrate.Message)
+				if !ok {
+					logrus.Errorf("Ack message Metadata is not a substrate message, is %T", suc.Metadata)
+					logrus.Errorf("Ack message: %+v", suc)
+					value, err := suc.Value.Encode()
+					if err != nil {
+						return err
+					}
+					logrus.Errorf("Ack message value: %s", string(value))
+					key, err := suc.Key.Encode()
+					if err != nil {
+						return err
+					}
+					logrus.Errorf("Ack message key: %s", string(key))
+
+					return fmt.Errorf("bug: ack message metadata was not a substrate message")
+				}
 				select {
 				case acks <- msg:
 					ams.debugger.Logf("substrate : producer - sent ack to caller for message : %s\n", msg)
