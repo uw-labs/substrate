@@ -1,0 +1,18 @@
+name: Build
+on:
+  push:
+    branches:
+      - '*'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      continue-on-error: true
+    - name: actions/setup-go@v3
+      with:
+        go-version: '^1.14'
+    - run: go version
