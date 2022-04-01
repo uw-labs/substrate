@@ -12,7 +12,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
       continue-on-error: true
-    - name: actions/setup-go@v3
+    - uses: actions/setup-go@v3
       with:
         go-version: '^1.14'
     - run: go version
