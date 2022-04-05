@@ -2,6 +2,8 @@ package proximo
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 
 	"google.golang.org/grpc"
@@ -9,7 +11,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 
 	"github.com/uw-labs/proximo/proto"
 	"github.com/uw-labs/sync/rungroup"
@@ -63,7 +64,7 @@ func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 	client := proto.NewMessageSinkClient(ams.conn)
 	stream, err := client.Publish(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to start publishing")
+		return fmt.Errorf("failed to start publishing: %w", err)
 	}
 
 	err = stream.Send(&proto.PublisherRequest{
@@ -72,7 +73,7 @@ func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 		},
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to set publish topic")
+		return fmt.Errorf("failed to set publish topic: %w", err)
 	}
 
 	toAck := make(chan *ackMessage)
@@ -118,7 +119,7 @@ func (ams *asyncMessageSink) sendMessagesToProximo(ctx context.Context, stream m
 						return ctx.Err()
 					}
 				}
-				return errors.Wrap(err, "failed to send message to proximo")
+				return fmt.Errorf("failed to send message to proximo: %w", err)
 			}
 			ams.debugger.Logf("substrate : sent to proximo : %s which has id %s\n", pMsg, pMsg.Id)
 		}
@@ -138,7 +139,7 @@ func (ams *asyncMessageSink) receiveAcksFromProximo(ctx context.Context, stream 
 					return ctx.Err()
 				}
 			}
-			return errors.Wrap(err, "failed to receive acknowledgement")
+			return fmt.Errorf("failed to receive acknowledgement: %w", err)
 		}
 		select {
 		case <-ctx.Done():

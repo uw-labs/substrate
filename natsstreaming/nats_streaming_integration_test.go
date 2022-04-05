@@ -250,7 +250,11 @@ func TestConsumerErrorOnBackendDisconnect(t *testing.T) {
 func TestProducerOnDisconnectedError(t *testing.T) {
 	// seed nats with some test data
 	stanServerOpts := stand.GetDefaultOptions()
+	stanServerOpts.Debug = false
+	stanServerOpts.EnableLogging = false
 	natsServerOpts := stand.DefaultNatsServerOptions
+	natsServerOpts.Debug = false
+	natsServerOpts.NoLog = true
 	natsServerOpts.Port = 10257 // sorry!
 	natsServ, err := stand.RunServerWithOpts(stanServerOpts, &natsServerOpts)
 	require.NoError(t, err)
@@ -262,7 +266,9 @@ func TestProducerOnDisconnectedError(t *testing.T) {
 	proxy := toxiproxy.NewProxy()
 	proxy.Listen = "localhost:10258"
 	proxy.Upstream = fmt.Sprintf("localhost:%d", natsServerOpts.Port)
-	err = proxy.Start()
+	if err := proxy.Start(); err != nil {
+		t.Fatal(err)
+	}
 	sink, err := NewAsyncMessageSink(AsyncMessageSinkConfig{
 		URL:                    fmt.Sprintf("nats://%s", proxy.Listen),
 		ClusterID:              stand.DefaultClusterID,

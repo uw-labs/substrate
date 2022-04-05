@@ -2,9 +2,9 @@ package proximo
 
 import (
 	"context"
+	"fmt"
 	"io"
 
-	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -100,7 +100,7 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 
 	stream, err := client.Consume(ctx)
 	if err != nil {
-		return errors.Wrap(err, "fail to consume")
+		return fmt.Errorf("fail to consume: %w", err)
 	}
 
 	var offset proto.Offset

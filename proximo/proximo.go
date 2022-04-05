@@ -10,7 +10,6 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
@@ -59,7 +58,7 @@ func dialProximo(conf dialConfig) (*grpc.ClientConn, error) {
 
 	conn, err := grpc.Dial(conf.broker, opts...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to dial %s", conf.broker)
+		return nil, fmt.Errorf("failed to dial %s: %w", conf.broker, err)
 	}
 
 	return conn, nil
@@ -76,7 +75,7 @@ func proximoStatus(conn *grpc.ClientConn) (*substrate.Status, error) {
 	case connectivity.Shutdown:
 		return &substrate.Status{Working: false, Problems: []string{"connection shutdown"}}, nil
 	default:
-		return nil, errors.Errorf("unknown connection state: %s", state)
+		return nil, fmt.Errorf("unknown connection state: %s", state)
 	}
 }
 

@@ -5,35 +5,32 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"os/exec"
 	"testing"
-	"time"
 
-	"google.golang.org/grpc"
-
+	"github.com/docker/go-connections/nat"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/internal/testshared"
 )
 
 func TestAll(t *testing.T) {
-	k, err := runServer()
+	k, err := runServer(t)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	defer k.Kill()
 
 	testshared.TestAll(t, k)
 }
 
 type testServer struct {
-	cmd  *exec.Cmd
-	port int
+	address string
+	port    int
 }
 
 func (ts *testServer) NewConsumer(topic string, groupID string) substrate.AsyncMessageSource {
 	s, err := NewAsyncMessageSource(AsyncMessageSourceConfig{
-		Broker:        fmt.Sprintf("localhost:%d", ts.port),
+		Broker:        fmt.Sprintf("%s:%d", ts.address, ts.port),
 		ConsumerGroup: groupID,
 		Topic:         topic,
 		Offset:        OffsetOldest,
@@ -47,7 +44,7 @@ func (ts *testServer) NewConsumer(topic string, groupID string) substrate.AsyncM
 
 func (ts *testServer) NewProducer(topic string) substrate.AsyncMessageSink {
 	s, err := NewAsyncMessageSink(AsyncMessageSinkConfig{
-		Broker:   fmt.Sprintf("localhost:%d", ts.port),
+		Broker:   fmt.Sprintf("%s:%d", ts.address, ts.port),
 		Topic:    topic,
 		Insecure: true,
 		Debug:    true,
@@ -60,31 +57,52 @@ func (ts *testServer) NewProducer(topic string) substrate.AsyncMessageSink {
 
 func (ts *testServer) TestEnd() {}
 
-func (ts *testServer) Kill() error {
-	return ts.cmd.Process.Kill()
-}
+func runServer(t *testing.T) (*testServer, error) {
+	t.Helper()
 
-func runServer() (*testServer, error) {
-	cmd := exec.CommandContext(
-		context.Background(),
-		"proximo-server",
-		"mem",
-	)
-	if err := cmd.Start(); err != nil {
-		return nil, err
-	}
-	ts := &testServer{cmd, 6868}
+	ctx := context.Background()
 
-	// Wait for server to start
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	conn, err := grpc.DialContext(ctx, fmt.Sprintf("localhost:%d", ts.port), grpc.WithInsecure(), grpc.WithBlock())
+	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: testcontainers.ContainerRequest{
+			Image: "quay.io/utilitywarehouse/uw-proximo:latest",
+
+			ExposedPorts: []string{
+				"6868/tcp",
+				"8080/tcp",
+			},
+			Cmd: []string{
+				"mem",
+			},
+			WaitingFor: wait.
+				NewHTTPStrategy("/__/health").
+				WithPort(nat.Port(fmt.Sprintf("%d", 8080))),
+		},
+		ProviderType: testcontainers.ProviderDocker,
+		Started:      true,
+	})
 	if err != nil {
-		return nil, err
+		t.Fatal(err)
 	}
-	defer conn.Close()
+	t.Cleanup(func() {
+		if err := container.Terminate(ctx); err != nil {
+			t.Fatal(err)
+		}
+	})
 
-	return ts, nil
+	ip, err := container.Host(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mappedPort, err := container.MappedPort(ctx, "6868")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return &testServer{
+		port:    mappedPort.Int(),
+		address: ip,
+	}, nil
 }
 
 func generateID() string {
