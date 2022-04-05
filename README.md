@@ -13,7 +13,6 @@ Current implementations and their status
 | Implementation                           | Status        |
 | ---------------------------------------- | ------------- |
 | Apache Kafka                             | beta          |
-| Nats streaming                           | beta          |
 | Proximo                                  | alpha         |
 | Freezer                                  | alpha         |
 
