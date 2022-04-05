@@ -2,8 +2,6 @@ package proximo
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"testing"
 
@@ -103,13 +101,4 @@ func runServer(t *testing.T) (*testServer, error) {
 		port:    mappedPort.Int(),
 		address: ip,
 	}, nil
-}
-
-func generateID() string {
-	random := []byte{0, 0, 0, 0, 0, 0, 0, 0}
-	_, err := rand.Read(random)
-	if err != nil {
-		panic(err)
-	}
-	return hex.EncodeToString(random)
 }
