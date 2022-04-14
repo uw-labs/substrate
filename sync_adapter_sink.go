@@ -2,9 +2,9 @@ package substrate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	"github.com/pkg/errors"
 	"github.com/uw-labs/sync/rungroup"
 )
 
@@ -110,7 +110,7 @@ func (spa *synchronousMessageSinkAdapter) loop() {
 		spa.closeErr <- spa.aprod.Close()
 	} else {
 		if err := spa.aprod.Close(); err != nil {
-			spa.closeErr <- errors.Errorf("sink error: %v sink close error: %v", sinkErr, err)
+			spa.closeErr <- fmt.Errorf("sink error: %v sink close error: %v", sinkErr, err)
 		} else {
 			spa.closeErr <- sinkErr
 		}
