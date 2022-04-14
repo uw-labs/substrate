@@ -21,6 +21,8 @@ import (
 )
 
 func TestAll(t *testing.T) {
+	t.Skip("broken, nats will be removed in future version")
+
 	k, err := runServer()
 	if err != nil {
 		t.Fatal(err)
