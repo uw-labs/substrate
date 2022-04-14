@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -15,7 +14,6 @@ import (
 	"github.com/google/uuid"
 	stand "github.com/nats-io/nats-streaming-server/server"
 	"github.com/nats-io/stan.go"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/internal/testshared"
@@ -250,8 +248,6 @@ func TestConsumerErrorOnBackendDisconnect(t *testing.T) {
 }
 
 func TestProducerOnDisconnectedError(t *testing.T) {
-	logrus.SetOutput(ioutil.Discard)
-
 	// seed nats with some test data
 	stanServerOpts := stand.GetDefaultOptions()
 	natsServerOpts := stand.DefaultNatsServerOptions

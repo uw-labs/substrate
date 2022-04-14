@@ -4,10 +4,18 @@ import (
 	"encoding/base64"
 	"hash/fnv"
 	"log"
+	"os"
+	"strconv"
 
 	"github.com/uw-labs/proximo/proto"
 	"github.com/uw-labs/substrate"
 )
+
+var verbose bool
+
+func init() {
+	verbose, _ = strconv.ParseBool(os.Getenv("VERBOSE"))
+}
 
 func messageHash(data []byte) string {
 	f := fnv.New32()
@@ -21,7 +29,7 @@ type Debugger struct {
 }
 
 func (d *Debugger) Logf(s string, args ...interface{}) {
-	if !d.Enabled {
+	if !verbose {
 		return
 	}
 	d.doLogf(s, args)

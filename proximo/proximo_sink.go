@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/gofrs/uuid"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"github.com/uw-labs/proximo/proto"
@@ -104,7 +104,7 @@ func (ams *asyncMessageSink) sendMessagesToProximo(ctx context.Context, stream m
 			return ctx.Err()
 		case msg := <-messages:
 			pMsg := &proto.Message{
-				Id:   uuid.Must(uuid.NewV4()).String(),
+				Id:   uuid.New().String(),
 				Data: msg.Data(),
 			}
 			select {
