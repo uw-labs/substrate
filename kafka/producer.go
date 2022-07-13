@@ -23,6 +23,7 @@ type AsyncMessageSinkConfig struct {
 	MaxMessageBytes int
 	KeyFunc         func(substrate.Message) []byte
 	Version         string
+	SASL            *SASLConfig
 
 	Debug bool
 }
@@ -153,6 +154,15 @@ func (ams *AsyncMessageSinkConfig) buildSaramaProducerConfig() (*sarama.Config, 
 	conf.Producer.Return.Errors = true
 	conf.Producer.Retry.Max = 3
 	conf.Producer.Timeout = time.Duration(60) * time.Second
+
+	if ams.SASL != nil {
+		conf.Net.SASL.Enable = true
+		conf.Net.TLS.Enable = true
+		conf.Net.SASL.Mechanism = ams.SASL.Mechanism.sarama()
+		conf.Net.SASL.User = ams.SASL.Username
+		conf.Net.SASL.Password = ams.SASL.Password
+		conf.Net.SASL.Version = ams.SASL.Version
+	}
 
 	if ams.MaxMessageBytes != 0 {
 		if ams.MaxMessageBytes > int(sarama.MaxRequestSize) {
