@@ -33,6 +33,7 @@ type AsyncMessageSourceConfig struct {
 	OffsetsRetention         time.Duration
 	SessionTimeout           time.Duration
 	Version                  string
+	SASL                     *SASLConfig
 
 	Debug bool
 }
@@ -57,6 +58,15 @@ func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*sarama.Config
 	config.Metadata.RefreshFrequency = mrf
 	config.Consumer.Group.Session.Timeout = st
 	config.Consumer.Offsets.Retention = ams.OffsetsRetention
+
+	if ams.SASL != nil {
+		config.Net.SASL.Enable = true
+		config.Net.TLS.Enable = true
+		config.Net.SASL.Mechanism = ams.SASL.Mechanism.sarama()
+		config.Net.SASL.User = ams.SASL.Username
+		config.Net.SASL.Password = ams.SASL.Password
+		config.Net.SASL.Version = ams.SASL.Version
+	}
 
 	if ams.Version != "" {
 		version, err := sarama.ParseKafkaVersion(ams.Version)
