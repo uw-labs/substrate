@@ -2,7 +2,21 @@ module github.com/uw-labs/substrate
 
 go 1.19
 
-replace github.com/docker/docker v23.0.0-rc.3+incompatible => github.com/docker/docker v20.10.11+incompatible
+replace (
+	// Pinned to resolve security alerts
+	github.com/containerd/containerd v1.3.0 => github.com/containerd/containerd v1.6.15
+	github.com/containerd/containerd v1.5.0-beta.1 => github.com/containerd/containerd v1.6.15
+	github.com/containerd/containerd v1.5.0-beta.3 => github.com/containerd/containerd v1.6.15
+	github.com/containerd/containerd v1.5.0-beta.4 => github.com/containerd/containerd v1.6.15
+	github.com/containerd/containerd v1.5.1 => github.com/containerd/containerd v1.6.15
+	github.com/containerd/containerd v1.5.7 => github.com/containerd/containerd v1.6.15
+	github.com/containerd/containerd v1.5.8 => github.com/containerd/containerd v1.6.15
+	github.com/containerd/containerd v1.5.9 => github.com/containerd/containerd v1.6.15
+	github.com/containerd/containerd v1.6.1 => github.com/containerd/containerd v1.6.15
+	github.com/docker/distribution v2.7.1+incompatible => github.com/docker/distribution v2.8.1+incompatible
+	github.com/docker/docker v23.0.0-rc.3+incompatible => github.com/docker/docker v20.10.11+incompatible
+	github.com/opencontainers/runc v1.0.2 => github.com/opencontainers/runc v1.1.3
+)
 
 require (
 	github.com/Shopify/sarama v1.38.1
