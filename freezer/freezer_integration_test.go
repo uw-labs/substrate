@@ -1,7 +1,6 @@
 package freezer
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -19,7 +18,9 @@ func TestAll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer k.Kill()
+	defer func() {
+		_ = k.Kill()
+	}()
 
 	testshared.TestAll(t, k)
 }
@@ -30,7 +31,7 @@ type testServer struct {
 }
 
 func runServer() (*testServer, error) {
-	dir, err := ioutil.TempDir("/tmp/", "substrate_freezer_test")
+	dir, err := os.MkdirTemp("/tmp/", "substrate_freezer_test")
 	if err != nil {
 		panic(err)
 	}
@@ -70,8 +71,8 @@ func (ks *testServer) NewProducer(topic string) substrate.AsyncMessageSink {
 }
 
 func (ks *testServer) TestEnd() {
-	os.RemoveAll(ks.dir)
-	os.MkdirAll(ks.dir, 0755)
+	_ = os.RemoveAll(ks.dir)
+	_ = os.MkdirAll(ks.dir, 0755)
 }
 
 func (ks *testServer) Kill() error {

@@ -23,7 +23,9 @@ func TestAll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer k.Kill()
+	defer func() {
+		_ = k.Kill()
+	}()
 
 	t.Run("Kafka Rebalance", func(t *testing.T) {
 		k.testRebalance(t)
@@ -199,12 +201,12 @@ loop:
 
 			ps := strings.Split(outS, ":")
 			if len(ps) != 2 {
-				cmd.Process.Kill()
+				_ = cmd.Process.Kill()
 				return nil, fmt.Errorf("docker port returned something strange: %s", outS)
 			}
 			p, err := strconv.Atoi(strings.TrimSpace(ps[1]))
 			if err != nil {
-				cmd.Process.Kill()
+				_ = cmd.Process.Kill()
 				return nil, fmt.Errorf("docker port returned something strange: %s", outS)
 			}
 			port = p
