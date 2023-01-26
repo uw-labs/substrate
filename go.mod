@@ -2,10 +2,7 @@ module github.com/uw-labs/substrate
 
 go 1.18
 
-replace (
-	github.com/Shopify/sarama v1.38.1 => github.com/Shopify/sarama v1.30.1
-	google.golang.org/grpc v1.52.3 => google.golang.org/grpc v1.45.0
-)
+replace github.com/Shopify/sarama v1.38.1 => github.com/Shopify/sarama v1.30.1
 
 require (
 	github.com/Shopify/sarama v1.38.1
