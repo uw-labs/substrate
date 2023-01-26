@@ -392,13 +392,22 @@ func testConsumeWithoutAck(t *testing.T, ts TestServer) {
 }
 
 func testProduceStatusOk(t *testing.T, ts TestServer) {
-	t.Skip("missmatch grpc version")
 	assert := assert.New(t)
 
 	// very basic happy path test.
 	prod := ts.NewProducer(generateID())
-	status, err := prod.Status()
-	assert.NoError(err)
+
+	var status *substrate.Status
+	var err error
+	for i := 0; i < 5; i++ {
+		status, err = prod.Status()
+		assert.NoError(err)
+
+		if status.Problems == nil {
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
 
 	assert.Equal(&substrate.Status{Working: true}, status)
 }
@@ -408,13 +417,22 @@ func testProduceStatusFail(t *testing.T, ts TestServer) {
 }
 
 func testConsumeStatusOk(t *testing.T, ts TestServer) {
-	t.Skip("missmatch grpc version")
 	assert := assert.New(t)
 
 	// very basic happy path test.
 	cons := ts.NewConsumer(generateID(), generateID())
-	status, err := cons.Status()
-	assert.NoError(err)
+
+	var status *substrate.Status
+	var err error
+	for i := 0; i < 5; i++ {
+		status, err = cons.Status()
+		assert.NoError(err)
+
+		if status.Problems == nil {
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
 
 	assert.Equal(&substrate.Status{Working: true}, status)
 }

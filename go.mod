@@ -1,8 +1,6 @@
 module github.com/uw-labs/substrate
 
-go 1.18
-
-replace github.com/Shopify/sarama v1.38.1 => github.com/Shopify/sarama v1.30.1
+go 1.19
 
 require (
 	github.com/Shopify/sarama v1.38.1
@@ -75,7 +73,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc2 // indirect
 	github.com/opencontainers/runc v1.1.3 // indirect
-	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
+	github.com/pierrec/lz4/v4 v4.1.17 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/common v0.39.0 // indirect
