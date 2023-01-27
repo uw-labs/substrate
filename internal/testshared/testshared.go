@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/uw-labs/substrate"
 )
 
@@ -392,24 +393,14 @@ func testConsumeWithoutAck(t *testing.T, ts TestServer) {
 }
 
 func testProduceStatusOk(t *testing.T, ts TestServer) {
-	assert := assert.New(t)
-
 	// very basic happy path test.
 	prod := ts.NewProducer(generateID())
+	assert.Eventually(t, func() bool {
+		status, err := prod.Status()
+		require.NoError(t, err)
 
-	var status *substrate.Status
-	var err error
-	for i := 0; i < 5; i++ {
-		status, err = prod.Status()
-		assert.NoError(err)
-
-		if status.Problems == nil {
-			break
-		}
-		time.Sleep(5 * time.Second)
-	}
-
-	assert.Equal(&substrate.Status{Working: true}, status)
+		return assert.Equal(t, &substrate.Status{Working: true}, status)
+	}, time.Second, 10*time.Millisecond)
 }
 
 func testProduceStatusFail(t *testing.T, ts TestServer) {
@@ -417,24 +408,14 @@ func testProduceStatusFail(t *testing.T, ts TestServer) {
 }
 
 func testConsumeStatusOk(t *testing.T, ts TestServer) {
-	assert := assert.New(t)
-
 	// very basic happy path test.
 	cons := ts.NewConsumer(generateID(), generateID())
+	assert.Eventually(t, func() bool {
+		status, err := cons.Status()
+		require.NoError(t, err)
 
-	var status *substrate.Status
-	var err error
-	for i := 0; i < 5; i++ {
-		status, err = cons.Status()
-		assert.NoError(err)
-
-		if status.Problems == nil {
-			break
-		}
-		time.Sleep(5 * time.Second)
-	}
-
-	assert.Equal(&substrate.Status{Working: true}, status)
+		return assert.Equal(t, &substrate.Status{Working: true}, status)
+	}, time.Second, 10*time.Millisecond)
 }
 
 func testConsumeStatusFail(t *testing.T, ts TestServer) {
