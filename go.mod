@@ -2,6 +2,9 @@ module github.com/uw-labs/substrate
 
 go 1.19
 
+// required for testcontainers-go compatibility https://github.com/docker/compose/issues/9946#issuecomment-1288923912
+replace github.com/docker/docker => github.com/docker/docker v20.10.3-0.20221013203545-33ab36d6b304+incompatible // 22.06 branch
+
 require (
 	github.com/Shopify/sarama v1.38.1
 	github.com/Shopify/toxiproxy v2.1.4+incompatible
