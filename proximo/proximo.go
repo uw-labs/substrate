@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 
@@ -45,7 +46,7 @@ func dialProximo(conf dialConfig) (*grpc.ClientConn, error) {
 	}
 
 	if conf.insecure {
-		opts = append(opts, grpc.WithInsecure())
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(new(tls.Config))))
 	}

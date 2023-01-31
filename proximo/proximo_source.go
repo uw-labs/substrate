@@ -77,7 +77,14 @@ func (cm *consMsg) Data() []byte {
 	if cm.pm == nil {
 		panic("attempt to use payload after discarding.")
 	}
-	return cm.pm.Data
+	return cm.pm.GetData()
+}
+
+func (cm *consMsg) Key() []byte {
+	if cm.pm == nil {
+		panic("attempt to use payload after discarding.")
+	}
+	return cm.pm.GetKey()
 }
 
 func (cm *consMsg) DiscardPayload() {
@@ -122,7 +129,9 @@ func (ams *asyncMessageSource) ConsumeMessages(ctx context.Context, messages cha
 	toAck := make(chan *consMsg)
 
 	rg.Go(func() error {
-		defer stream.CloseSend()
+		defer func() {
+			_ = stream.CloseSend()
+		}()
 
 		var toAckList []*consMsg
 		for {

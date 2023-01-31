@@ -80,7 +80,9 @@ func (ams *asyncMessageSink) PublishMessages(ctx context.Context, acks chan<- su
 	proximoAcks := make(chan string)
 
 	rg.Go(func() error {
-		defer stream.CloseSend()
+		defer func() {
+			_ = stream.CloseSend()
+		}()
 
 		return ams.sendMessagesToProximo(ctx, stream, messages, toAck)
 	})
@@ -105,8 +107,11 @@ func (ams *asyncMessageSink) sendMessagesToProximo(ctx context.Context, stream m
 			return ctx.Err()
 		case msg := <-messages:
 			pMsg := &proto.Message{
-				Id:   uuid.New().String(),
+				Id:   uuid.NewString(),
 				Data: msg.Data(),
+			}
+			if km, ok := msg.(substrate.KeyedMessage); ok {
+				pMsg.Key = km.Key()
 			}
 			select {
 			case <-ctx.Done():
