@@ -57,6 +57,7 @@ func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*sarama.Config
 	config.Metadata.RefreshFrequency = mrf
 	config.Consumer.Group.Session.Timeout = st
 	config.Consumer.Offsets.Retention = ams.OffsetsRetention
+	config.Consumer.Group.Rebalance.Timeout = st
 
 	if ams.Version != "" {
 		version, err := sarama.ParseKafkaVersion(ams.Version)
