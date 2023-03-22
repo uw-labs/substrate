@@ -32,7 +32,7 @@ type AsyncMessageSourceConfig struct {
 	MetadataRefreshFrequency time.Duration
 	OffsetsRetention         time.Duration
 	SessionTimeout           time.Duration
-	RegroupTimeout           time.Duration
+	RebalanceTimeout         time.Duration
 	Version                  string
 
 	Debug bool
@@ -59,8 +59,8 @@ func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*sarama.Config
 	config.Consumer.Group.Session.Timeout = st
 	config.Consumer.Offsets.Retention = ams.OffsetsRetention
 
-	if ams.RegroupTimeout != 0 {
-		config.Consumer.Group.Rebalance.Timeout = ams.RegroupTimeout
+	if ams.RebalanceTimeout != 0 {
+		config.Consumer.Group.Rebalance.Timeout = ams.RebalanceTimeout
 	}
 
 	if ams.Version != "" {

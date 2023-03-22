@@ -95,13 +95,13 @@ func newKafkaSource(u *url.URL) (substrate.AsyncMessageSource, error) {
 		}
 		conf.SessionTimeout = d
 	}
-	dur = q.Get("regroup-timeout")
+	dur = q.Get("rebalance-timeout")
 	if dur != "" {
 		d, err := time.ParseDuration(dur)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse regroup timeout : %v", err)
+			return nil, fmt.Errorf("failed to parse rebalance timeout : %v", err)
 		}
-		conf.RegroupTimeout = d
+		conf.RebalanceTimeout = d
 	}
 
 	conf.Version = q.Get("version")

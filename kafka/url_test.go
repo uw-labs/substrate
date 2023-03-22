@@ -123,12 +123,13 @@ func TestKafkaSource(t *testing.T) {
 		},
 		{
 			name:  "everything",
-			input: "kafka://localhost:123/t1/?offset=newest&consumer-group=g1&metadata-refresh=2s&broker=localhost:234&broker=localhost:345&version=0.10.2.0&session-timeout=30s",
+			input: "kafka://localhost:123/t1/?offset=newest&consumer-group=g1&metadata-refresh=2s&broker=localhost:234&broker=localhost:345&version=0.10.2.0&session-timeout=30s&rebalance-timeout=30s",
 			expected: AsyncMessageSourceConfig{
 				Brokers:                  []string{"localhost:123", "localhost:234", "localhost:345"},
 				ConsumerGroup:            "g1",
 				MetadataRefreshFrequency: 2 * time.Second,
 				SessionTimeout:           30 * time.Second,
+				RebalanceTimeout:         30 * time.Second,
 				Offset:                   sarama.OffsetNewest,
 				Topic:                    "t1",
 				Version:                  "0.10.2.0",
