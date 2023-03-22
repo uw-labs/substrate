@@ -32,6 +32,7 @@ type AsyncMessageSourceConfig struct {
 	MetadataRefreshFrequency time.Duration
 	OffsetsRetention         time.Duration
 	SessionTimeout           time.Duration
+	RegroupTimeout           time.Duration
 	Version                  string
 
 	Debug bool
@@ -57,7 +58,10 @@ func (ams *AsyncMessageSourceConfig) buildSaramaConsumerConfig() (*sarama.Config
 	config.Metadata.RefreshFrequency = mrf
 	config.Consumer.Group.Session.Timeout = st
 	config.Consumer.Offsets.Retention = ams.OffsetsRetention
-	config.Consumer.Group.Rebalance.Timeout = st
+
+	if ams.RegroupTimeout != 0 {
+		config.Consumer.Group.Rebalance.Timeout = ams.RegroupTimeout
+	}
 
 	if ams.Version != "" {
 		version, err := sarama.ParseKafkaVersion(ams.Version)
