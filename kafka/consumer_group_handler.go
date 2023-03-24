@@ -41,7 +41,7 @@ func (c *consumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error {
 // ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
 // Once the Messages() channel is closed, the Handler must finish its processing
 // loop and exit.
-func (c *consumerGroupHandler) ConsumeClaim(_ sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+func (c *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	// This function can be called concurrently for multiple claims, so the code
 	// below, absent locking etc may seem wrong, but it's actually fine.
 	// Different partition claims can be processed concurrently, but we funnel
@@ -60,6 +60,8 @@ func (c *consumerGroupHandler) ConsumeClaim(_ sarama.ConsumerGroupSession, claim
 			case <-c.ctx.Done():
 				return nil
 			}
+		case <-sess.Context().Done():
+			return nil
 		}
 	}
 }
