@@ -81,14 +81,26 @@ func (spa *synchronousMessageSinkAdapter) loop() {
 				select {
 				case <-ctx.Done():
 					return nil
-				case toSend <- seqMessage{seq: seq, Message: pr.m}:
+				case toSend <- func() Message {
+					msg := seqMessage{seq: seq, Message: pr.m}
+					if keyedMsg, ok := pr.m.(KeyedMessage); ok {
+						return keyedSeqMessage{seqMessage: msg, key: keyedMsg.Key()}
+					} else {
+						return msg
+					}
+				}():
 				case <-spa.closeReq:
 					return nil
 				}
 			case ack := <-acks:
 				msg, ok := ack.(seqMessage)
 				if !ok {
-					panic(fmt.Sprintf("unexpected message: %s", ack))
+					kmsg, ok := ack.(keyedSeqMessage)
+					if !ok {
+						panic(fmt.Sprintf("unexpected message: %s", ack))
+					}
+
+					msg = kmsg.seqMessage
 				}
 				req, ok := needAcks[msg.seq]
 				if !ok {
@@ -171,4 +183,13 @@ type seqMessage struct {
 
 func (msg seqMessage) Original() Message {
 	return msg.Message
+}
+
+type keyedSeqMessage struct {
+	key []byte
+	seqMessage
+}
+
+func (msg keyedSeqMessage) Key() []byte {
+	return msg.key
 }
