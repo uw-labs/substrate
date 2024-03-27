@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	"github.com/hashicorp/go-multierror"
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/internal/debug"

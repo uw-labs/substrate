@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	"github.com/stretchr/testify/assert"
 	"github.com/uw-labs/substrate"
 	"github.com/uw-labs/substrate/suburl"
